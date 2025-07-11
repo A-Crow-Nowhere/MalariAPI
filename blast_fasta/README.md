@@ -2,6 +2,7 @@
 
 This repository provides a workflow to identify and quantify contamination in single-cell samples by BLASTing reads against a curated contaminant database and summarizing genus-level proportions.
 
+The code is a reactiation and automated workflow of the steps described in Lie et al.; [Found here](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-021-00889-9#availability-of-data-and-materials)
 ---
 
 ## Setup
