@@ -1,0 +1,90 @@
+# Contamination Detection Pipeline
+
+This repository provides a workflow to identify and quantify contamination in single-cell samples by BLASTing reads against a curated contaminant database and summarizing genus-level proportions.
+
+---
+
+## Setup
+
+### 1. Create Conda Environment
+
+This project requires BLAST+ and Python packages including Biopython and requests.
+
+Create the conda environment with:
+
+```bash
+conda env create -f environment.yml
+conda activate blastenv
+```
+
+Alternatively, use pip for Python packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+### 2. Prepare the Contaminant Database
+
+1. Collect FASTA files for contaminants including:
+   - All prokaryotes
+   - All fungi
+   - All protozoans
+   - Human genome
+
+2. Concatenate all FASTA files into a single file, e.g.:
+
+```bash
+cat *.fa > contaminants_all.fa
+```
+
+3. Build the BLAST nucleotide database:
+
+```bash
+makeblastdb -in contaminants_all.fa -dbtype nucl -out contaminants_db -parse_seqids -taxid_map taxid_map.txt
+```
+
+> Note: Generating the `taxid_map.txt` file properly is recommended but optional for now.
+
+---
+
+### 3. Run BLAST and Summarize Genus Proportions
+
+Run the provided bash script `blast.sh` to BLAST each FASTA sample against the contaminant database.
+
+This produces BLAST output files in `blast_nt_out/`.
+
+Then run the Python script `summarize_top_genus_proportions.py` on the output files to get the proportions of reads mapping to different genera:
+
+```bash
+python3 summarize_top_genus_proportions.py blast_nt_out/sample.nt.blast.out
+```
+
+This script uses Entrez to fetch genus names from accession IDs.
+
+---
+
+## Files
+
+- `blast.sh`: Bash wrapper to run BLAST on samples and keep top hits.
+- `summarize_top_genus_proportions.py`: Python script to parse BLAST results and report genus proportions.
+- `environment.yml`: Conda environment file.
+- `requirements.txt`: Python dependencies.
+
+---
+
+## Notes
+
+- Make sure you have an internet connection for Entrez queries.
+- Replace the email in the Python script with your own email for Entrez usage.
+- To speed up, you can cache genus mappings locally or build a local taxonomy DB.
+
+---
+
+## Contact
+
+For questions or issues, open an issue or contact the maintainer.
+
+---
+
