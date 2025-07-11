@@ -90,14 +90,15 @@ makeblastdb -in contaminants_all.fa -dbtype nucl -out contaminants_db -parse_seq
 ### 3. Run BLAST and Summarize Genus Proportions
 
 Run the provided bash script `blast.sh` to BLAST each FASTA sample against the contaminant database.
+The python code for `summarize_top_genus_proportions.py` is also provided and needs to be in the same 
+directory as `blast.sh`
 
-This produces BLAST output files in `blast_nt_out/`.
+This produces BLAST output files in `blast_nt_out/`. Logs for the the blastn will be made 
+(ignore warnings), as well as the raw blast hits, and the summary of genuses hit.
 
-Then run the Python script `summarize_top_genus_proportions.py` on the output files to get the proportions of reads mapping to different genera:
+run as:
 
-```bash
-python3 summarize_top_genus_proportions.py blast_nt_out/sample.nt.blast.out
-```
+`./bash.sh`
 
 This script uses Entrez to fetch genus names from accession IDs.
 
@@ -123,6 +124,7 @@ This script uses Entrez to fetch genus names from accession IDs.
 ## Contact
 
 For questions or issues, open an issue or contact the maintainer.
+njb8sg@virginia.edu
 
 ---
 
