@@ -78,9 +78,10 @@ pip install -r requirements.txt
 cat *.fa > contaminants_all.fa
 ```
 
-3. Build the BLAST nucleotide database:
+3. Make a taxid_map.txt file with the included `generate_taxid_map.sh` file and Build the BLAST nucleotide database:
 
 ```bash
+
 makeblastdb -in contaminants_all.fa -dbtype nucl -out contaminants_db -parse_seqids -taxid_map taxid_map.txt
 ```
 
