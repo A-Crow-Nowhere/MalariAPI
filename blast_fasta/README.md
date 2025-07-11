@@ -32,6 +32,44 @@ pip install -r requirements.txt
    - All fungi
    - All protozoans
    - Human genome
+   - 
+#### The standard database construction:
+      Prokaryotes (Bacteria & Archaea)
+      Bacteria (RefSeq genomes)
+      ftp://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt
+      (You then download all relevant bacterial genome fasta files listed here)
+      
+      Archaea (RefSeq genomes)
+      ftp://ftp.ncbi.nlm.nih.gov/genomes/refseq/archaea/assembly_summary.txt
+      (Same as above for archaea)
+      
+      Fungi
+      Fungi (RefSeq genomes)
+      ftp://ftp.ncbi.nlm.nih.gov/genomes/refseq/fungi/assembly_summary.txt
+      
+      Protozoa (including Plasmodium)
+      Protozoa (RefSeq genomes)
+      ftp://ftp.ncbi.nlm.nih.gov/genomes/refseq/protozoa/assembly_summary.txt
+      
+      Or specific Plasmodium genome (example):
+      ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/002/765/GCF_000002765.5_ASM276v2/GCF_000002765.5_ASM276v2_genomic.fna.gz
+      
+      Human Genome
+      Human reference genome (GRCh38, primary assembly)
+      ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.39_GRCh38.p13/GCF_000001405.39_GRCh38.p13_genomic.fna.gz
+      
+      How to get these
+      Download the assembly_summary.txt for each group above.
+      
+      Parse the summary to get the FTP links to the actual fasta genome files.
+      
+      Use wget or curl to download those fasta files.
+      
+      Concatenate all downloaded fasta files into a single contaminants_all.fa.
+      
+      Build your BLAST DB from that combined fasta.
+
+
 
 2. Concatenate all FASTA files into a single file, e.g.:
 
