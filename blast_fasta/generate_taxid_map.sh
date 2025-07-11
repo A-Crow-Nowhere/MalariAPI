@@ -1,38 +1,28 @@
 #!/bin/bash
+set -euo pipefail
 
-FASTA="contaminants_all.fa"
-KEYWORDS="taxid_keywords.tsv"
-OUT="taxid_map.txt"
+FASTA_FILE="accession.fa"     # Your input FASTA file
+OUTPUT_FILE="taxid_map.txt"   # Output file for accession-to-taxid map
 
-# Make sure files exist
-if [[ ! -f $FASTA || ! -f $KEYWORDS ]]; then
-  echo "Missing $FASTA or $KEYWORDS"
-  exit 1
-fi
+echo "Generating taxid map from $FASTA_FILE..."
 
-# Build awk-friendly lookup string
-awk -v kfile="$KEYWORDS" '
-  BEGIN {
-    while ((getline < kfile) > 0) {
-      kwd[tolower($1)] = $2
-    }
-  }
-  /^>/ {
-    header = substr($0, 2)
-    split(header, a, " ")
-    id = a[1]
-    tax = 0
-    for (k in kwd) {
-      if (tolower($0) ~ k) {
-        tax = kwd[k]
-        break
-      }
-    }
-    if (tax > 0)
-      print id "\t" tax
-    else
-      print id "\t0"  # fallback if no match
-  }
-' "$FASTA" > "$OUT"
+# Extract unique accessions from FASTA headers (assumes first word after '>' is accession)
+grep '^>' "$FASTA_FILE" | sed 's/^>//' | awk '{print $1}' | sort -u > accessions.txt
 
-echo "✅ Generated $OUT"
+# Empty output file or create if doesn't exist
+> "$OUTPUT_FILE"
+
+# Function to get taxid for accession
+get_taxid() {
+    local acc=$1
+    taxid=$(esearch -db nucleotide -query "$acc" | efetch -format docsum | xtract -pattern DocumentSummary -element TaxId 2>/dev/null || echo "0")
+    echo -e "${acc}\t${taxid}"
+}
+
+# Iterate over each accession and write accession + taxid to output file
+while read -r acc; do
+    taxid_line=$(get_taxid "$acc")
+    echo "$taxid_line" >> "$OUTPUT_FILE"
+done < accessions.txt
+
+echo "Taxid map saved to $OUTPUT_FILE"
