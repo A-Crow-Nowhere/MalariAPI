@@ -50,7 +50,7 @@ mkdir -p /tools/blast/fastas #MOVE FASTA FILE(S) HERE
 mkdir -p /tools/blast/blastOut
 ```
 
-### Runs the code - the larger the fasta, the longer it takes. log files are produced mid run for you to check progress
+### Runs the code - the larger the fasta, the longer it takes. log files are produced mid run for you to check progress. To avoid blastn hangups and ensure that a file is actually produced, blast.sh remvoes reads that have a high incedence of 'n' and are less than 30bp
 ```bash
 cd /tools/blast
 wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/scripts/blast/blast.sh
