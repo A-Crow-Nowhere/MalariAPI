@@ -7,7 +7,28 @@ The code is a reactiation and automated workflow of the steps described in Liu e
 
 ## Copy and paste chunk by chunk into bash:
 
-### Create environment and construct database (skip if done prevoiusly, takes ~5-10 minutes)
+### Create environment and construct database (skip if done prevoiusly, takes ~5-10 minutes). Further, consider adding/subtracting the custom database genomes depeneding on what you need. Those can be found in the make_db.sh file. By default: 
+
+GCF_000001405.39	Human
+GCF_000001635.27	Mouse
+GCF_000146045.2	Yeast
+GCF_000002765.6	Plasmodium
+GCF_000006985.1	Mycoplasma
+GCF_000012865.1	Mycoplasma
+GCF_009858895.2	Ecoli
+GCF_000007565.1	Pseudomonas
+GCF_000008865.1	Bacillus
+GCF_000002655.1	Candida
+GCF_000149845.1	Aspergillus
+GCF_000002335.4	Trypanosoma
+GCF_000002875.2	Leishmania
+GCF_000006805.1	Halobacterium
+GCF_000010525.1	Methanobrevibacter
+GCF_000819615.1	Arabidopsis
+GCF_001433935.1	Oryza
+GCF_000819615.1	Plant
+GCF_000819025.1	PhiX
+GCF_000316655.1	pUC19
 ```bash
 cd~
 cd envs/yaml
