@@ -6,7 +6,7 @@ dependencies:
   - python=3.9
   - biopython
   - requests
-  - blast=2.16.0
+  - blast
   - pip
   - pip:
-      - # add pip packages here if needed
+
