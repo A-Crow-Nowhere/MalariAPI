@@ -18,12 +18,6 @@ conda env create -f environment.yml
 conda activate blastenv
 ```
 
-Alternatively, use pip for Python packages:
-
-```bash
-pip install -r requirements.txt
-```
-
 ---
 
 ### 2. Prepare the Contaminant Database
