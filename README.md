@@ -106,12 +106,15 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y build-essential git curl unzip htop openssh-server micro samtools bedtools
 mkdir tools
 mkdir bin
+mkdir -p envs/yaml
 mkdir /tools/miniconda3
 cd tools/miniconda3
 
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O .
 bash ../miniconda.sh -b -u -p .
-rm /tools/miniconda.sh
+rm ../miniconda.sh
+source ~/tools/miniconda3/bin/activate
+conda init --all
 
 
 #For a variety of dependency issues samtools and bedtools will be installed in the highest level
