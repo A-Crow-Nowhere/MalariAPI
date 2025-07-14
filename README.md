@@ -75,24 +75,8 @@ Download the free edition of MobaXterm from:
 
 ---
 
-## 3. Configure Ubuntu WSL Environment
 
-### 🔧 Update and Install Useful Tools
-
-Inside WSL:
-
-```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y build-essential git curl unzip htop openssh-server micro samtools bedtools 
-
-#For a variety of dependency issues samtools and bedtools will be installed in the highest level
-#executable bin. 
-
-#I will write any text editing commands with 'micro' but you can use vim or nano if you prefer. 
-```
-
-
-## 4. Enable SSH Access for MobaXterm
+## 3. Enable SSH Access for MobaXterm
 
 Inside WSL:
 
@@ -100,7 +84,7 @@ Inside WSL:
 sudo service ssh start
 ```
 
-## 5. Connect with MobaXterm
+## 4. Connect with MobaXterm
 
 1. Open MobaXterm
 2. Click **Session → WSL → Ubuntu**
@@ -108,4 +92,30 @@ sudo service ssh start
 This will launch the WSL shell inside MobaXterm.
 Pick a start up directory that makes it easy to access from your File Explorere
 
+
+
+
+# Configure MalariAPI Environment in mobaxterm
+
+### 🔧 Update and Install Useful Tools
+
+Inside WSL:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y build-essential git curl unzip htop openssh-server micro samtools bedtools
+mkdir tools
+mkdir bin
+mkdir /tools/miniconda3
+cd tools/miniconda3
+
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O .
+bash ../miniconda.sh -b -u -p .
+rm /tools/miniconda.sh
+
+
+#For a variety of dependency issues samtools and bedtools will be installed in the highest level
+#executable bin. 
+#I will write any text editing commands with 'micro' but you can use vim or nano if you prefer. 
+```
 You're ready to move on to recreating the MalariAPI codebase.
