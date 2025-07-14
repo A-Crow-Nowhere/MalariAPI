@@ -116,6 +116,9 @@ rm ../miniconda.sh
 source ~/tools/miniconda3/bin/activate
 conda init --all
 
+conda config --add channels bioconda
+conda config --add channels conda-forge
+conda config --set channel_priority strict
 
 #For a variety of dependency issues samtools and bedtools will be installed in the highest level
 #executable bin. 
