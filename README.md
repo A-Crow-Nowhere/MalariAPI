@@ -24,7 +24,7 @@ This guide walks you through setting up a fully functional Ubuntu WSL environmen
 
 ### ✅ Enable WSL (Windows Subsystem for Linux)
 
-Open **PowerShell as Administrator** and run:
+Open **PowerShell as Administrator** and run in powershell:
 
 ```powershell
 wsl --install
@@ -36,7 +36,7 @@ This will:
 * Enable Virtual Machine Platform
 * Download and install the latest Ubuntu LTS release (e.g., Ubuntu 22.04)
 
-⚠️ If you already have WSL installed, you can manually install Ubuntu with:
+⚠️ If you already have WSL installed, you can manually install Ubuntu with in powershell:
 
 ```powershell
 wsl --install -d Ubuntu
@@ -46,11 +46,12 @@ After installation, reboot if prompted.
 
 ### 🔄 First Launch
 
-After installation, run:
+After installation, run in powershell:
 
 ```powershell
 wsl
 ```
+*note it may do this automatically
 
 This will launch Ubuntu and prompt:
 
@@ -82,40 +83,14 @@ Inside WSL:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y build-essential git curl unzip htop openssh-server
+sudo apt install -y build-essential git curl unzip htop openssh-server micro samtools bedtools 
+
+#For a variety of dependency issues samtools and bedtools will be installed in the highest level
+#executable bin. 
+
+#I will write any text editing commands with 'micro' but you can use vim or nano if you prefer. 
 ```
 
-### 👤 Ensure You’re Logged in as a Non-Root User
-
-If WSL dropped you into a `root@host` shell without creating a user:
-
-```bash
-adduser yourname
-usermod -aG sudo yourname
-```
-
-Then set WSL to auto-login as that user:
-
-```bash
-sudo nano /etc/wsl.conf
-```
-
-Add:
-
-```ini
-[user]
-default=yourname
-```
-
-Restart WSL:
-
-```powershell
-wsl --shutdown
-```
-
-Then relaunch `wsl`.
-
----
 
 ## 4. Enable SSH Access for MobaXterm
 
