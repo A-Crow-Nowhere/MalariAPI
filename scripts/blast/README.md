@@ -33,13 +33,14 @@ GCF_000316655.1	pUC19
 cd~
 cd envs/yaml
 wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/yaml/blastenv.yml
-conda env create -f environment.yml
+conda env create -f blastenv.yml
 conda activate blastenv
 
 cd~
 mkdir -p /tools/blast/contamdb/out
 cd /tools/blast/condtamdb
 wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/make_db.sh
+chmod +x make_db.sh
 ./make_db.sh
 ```
 
