@@ -5,8 +5,9 @@ This repository provides a workflow to identify and quantify contamination in si
 The code is a reactiation and automated workflow of the steps described in Liu et al.; [Found here](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-021-00889-9#availability-of-data-and-materials)
 ---
 
-##Copy and paste chunk by chunk into bash:
+## Copy and paste chunk by chunk into bash:
 
+### Create environment and construct database (skip if done prevoiusly, takes ~5-10 minutes)
 ```bash
 cd~
 cd envs/yaml
@@ -21,12 +22,14 @@ wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/make_
 ./make_db.sh
 ```
 
+### Create in and out directories. Fastas are analized in this exact directory and must end with .fasta
 ```bash
 cd~
 mkdir -p /tools/blast/fastas #MOVE FASTA FILE(S) HERE
 mkdir -p /tools/blast/blastOut
 ```
 
+### Runs the code - the larger the fasta, the longer it takes. log files are produced mid run for you to check progress
 ```bash
 cd /tools/blast
 wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/scripts/blast/blast.sh
@@ -40,8 +43,8 @@ chmod +x summarize.sh
 ./summarize.sh
 ```
 
-Raw blast outputs will be in the /tools/blast/blastOut dir
-summarized outputs will be in the /tools/blast dir
+### Raw blast outputs will be in the /tools/blast/blastOut dir
+### summarized outputs will be in the /tools/blast dir
 ---
 
 
