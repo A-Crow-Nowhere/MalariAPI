@@ -1,17 +1,25 @@
 #!/bin/bash
 
 OUTDIR="blastOut"
-FILTERED_FASTAS="filtered"
-mkdir -p "$OUTDIR" "$FILTERED_FASTAS"
+mkdir -p "$OUTDIR"
 
 DB_PATH="$HOME/tools/blast/contamdb/out/contaminants_db"
 SKIP_EXISTING=true
 
-for fasta in ./fastas/*.fasta; do
+MIN_MEM_KB=700000  # 700 MB threshold
+SLEEP_AFTER_EXIT=30 # seconds to wait before restart on low memory
+
+DEBUG=0
+if [[ "$1" == "--debug" ]]; then
+  DEBUG=1
+fi
+
+process_samples() {
+  for fasta in ./fastas/*.fasta; do
     sample=$(basename "$fasta" .fasta)
     outfile="$OUTDIR/${sample}.nt.blast.out"
     log="$OUTDIR/${sample}.log"
-    filtered_fasta="$FILTERED_FASTAS/${sample}.filtered.fasta"
+    filtered_fasta="$OUTDIR/${sample}.filtered.fasta"
 
     if [[ "$SKIP_EXISTING" == true && -s "$outfile" ]]; then
         echo "$sample already completed, skipping."
@@ -20,12 +28,7 @@ for fasta in ./fastas/*.fasta; do
 
     echo "$(date) - Filtering $sample" | tee "$log"
 
-    # Filtering: Remove short or mostly-N reads
-    echo "$(date) - Filtering $sample" | tee "$log"
-
-    passed=0
-    failed=0
-
+    # Filter: remove reads <100 bp or >50% Ns
     awk -v out="$filtered_fasta" '
     BEGIN { RS = ">" ; ORS = "" }
     NR > 1 {
@@ -35,7 +38,7 @@ for fasta in ./fastas/*.fasta; do
         total = length(seq)
         ncount = gsub(/[Nn]/, "", seq)
 
-        if (total >= 30 && ncount / total <= 0.5) {
+        if (total >= 100 && ncount / total <= 0.5) {
             print ">" header "\n" seq "\n" >> out
             passed++
         } else {
@@ -43,35 +46,92 @@ for fasta in ./fastas/*.fasta; do
         }
     }
     END {
-        printf("🔍 Filtering complete: %d passed, %d failed\n", passed, failed) > "/dev/stderr"
+        printf("Γ£à Filtering complete: %d passed, %d failed\n", passed, failed) > "/dev/stderr"
     }' "$fasta" 2>>"$log"
 
-
-    blastn -query "$filtered_fasta" \
-        -db "$DB_PATH" \
-        -outfmt '6 qseqid sseqid pident length mismatch evalue sscinames' \
-        -max_target_seqs 10 \
-        -num_threads 4 \
-        -dust no \
-        -qcov_hsp_perc 80 \
-        -evalue 1e-10 \
-        -out "$outfile.tmp" >> "$log" 2>&1
-
-    # Keep only top hit per read
-    sort -k1,1 -k6,6g "$outfile.tmp" | awk '!seen[$1]++' > "$outfile"
-    rm "$outfile.tmp"
-
-    if [[ $? -ne 0 ]]; then
-        echo "$(date) - ERROR for $sample" | tee -a "$log"
+    if [[ ! -s "$filtered_fasta" ]]; then
+        echo "ΓÜá∩╕Å No reads passed filter for $sample. Skipping." | tee -a "$log"
         continue
     fi
 
-    echo "$(date) - Finished BLAST for $sample" | tee -a "$log"
+    # Determine number of sequences to blast
+    total_seqs=$(grep -c '^>' "$filtered_fasta")
+    if [[ $DEBUG -eq 1 ]]; then
+        num_seqs_to_blast=100
+    else
+        num_seqs_to_blast=5000
+    fi
 
-    echo "🧮 Summarizing genus proportions for $sample:"
+    blast_input="$filtered_fasta"
+    if [[ $num_seqs_to_blast -lt $total_seqs ]]; then
+        blast_input="$OUTDIR/${sample}.blast_input.fasta"
+        awk -v n=$num_seqs_to_blast 'BEGIN{RS=">"; ORS=""} NR==1{next} NR<=n+1{print ">"$0}' "$filtered_fasta" > "$blast_input"
+        echo "DEBUG mode: blasting only first $num_seqs_to_blast sequences for $sample" | tee -a "$log"
+    fi
+
+    echo "$(date) - BLASTing $sample" | tee -a "$log"
+    echo "?? Running blastn on $sample with up to $num_seqs_to_blast sequences" | tee -a "$log"
+
+    free_kb=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
+    if [[ $free_kb -lt $MIN_MEM_KB ]]; then
+        echo "ΓÜá∩╕Å Low available memory (${free_kb} KB) before BLAST for $sample. Exiting to avoid crash." | tee -a "$log"
+        rm -f "$blast_input"
+        return 1  # signal to restart
+    fi
+
+    blastn -query "$blast_input" \
+        -db "$DB_PATH" \
+        -outfmt '6 qseqid sseqid pident length mismatch evalue sscinames' \
+        -max_target_seqs 10 \
+        -num_threads 8 \
+        -dust no \
+        -qcov_hsp_perc 90 \
+        -evalue 1e-20 \
+        -out "$outfile.tmp" >> "$log" 2>&1
+
+    blast_exit=$?
+
+    if [[ $blast_exit -ne 0 ]]; then
+        echo "$(date) - Γ¥î BLAST failed with exit $blast_exit for $sample. Skipping." | tee -a "$log"
+        rm -f "$outfile.tmp" "$blast_input"
+        continue
+    fi
+
+    sort -k1,1 -k6,6g "$outfile.tmp" | awk '!seen[$1]++' > "$outfile"
+    rm -f "$outfile.tmp" "$blast_input"
+
+    echo "$(date) - Γ£à Finished BLAST for $sample" | tee -a "$log"
+
+    echo "?? Summarizing genus proportions for $sample:" | tee -a "$log"
     python3 summarize_top_genus_proportions.py "$outfile" | tee -a "$log"
-    echo ""
+    echo "" | tee -a "$log"
 
+    echo "$(date) - Memory usage after $sample:" | tee -a "$log"
+    free -h | tee -a "$log"
+
+    free_kb=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
+    if [[ $free_kb -lt $MIN_MEM_KB ]]; then
+        echo "ΓÜá∩╕Å Low available memory (${free_kb} KB) after processing $sample. Exiting to avoid crash." | tee -a "$log"
+        return 1  # signal to restart
+    fi
+
+    echo "Sleeping 2 seconds to free resources..." | tee -a "$log"
+    sleep 2
+  done
+
+  return 0
+}
+
+echo "Starting BLAST loop. Debug mode: $DEBUG"
+while true; do
+  process_samples
+  exitcode=$?
+  if [[ $exitcode -eq 0 ]]; then
+    echo "Γ£à All samples processed."
+    break
+  else
+    echo "ΓÜá∩╕Å Exiting early due to low memory. Sleeping $SLEEP_AFTER_EXIT seconds before retry..."
+    sleep $SLEEP_AFTER_EXIT
+    echo "Restarting BLAST loop..."
+  fi
 done
-
-echo "✅ All samples processed or attempted."
