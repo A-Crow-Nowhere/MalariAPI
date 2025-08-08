@@ -46,11 +46,11 @@ process_samples() {
         }
     }
     END {
-        printf("Γ£à Filtering complete: %d passed, %d failed\n", passed, failed) > "/dev/stderr"
+        printf("✅ Filtering complete: %d passed, %d failed\n", passed, failed) > "/dev/stderr"
     }' "$fasta" 2>>"$log"
 
     if [[ ! -s "$filtered_fasta" ]]; then
-        echo "ΓÜá∩╕Å No reads passed filter for $sample. Skipping." | tee -a "$log"
+        echo "⚠️ No reads passed filter for $sample. Skipping." | tee -a "$log"
         continue
     fi
 
@@ -74,7 +74,7 @@ process_samples() {
 
     free_kb=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
     if [[ $free_kb -lt $MIN_MEM_KB ]]; then
-        echo "ΓÜá∩╕Å Low available memory (${free_kb} KB) before BLAST for $sample. Exiting to avoid crash." | tee -a "$log"
+        echo "⚠️ Low available memory (${free_kb} KB) before BLAST for $sample. Exiting to avoid crash." | tee -a "$log"
         rm -f "$blast_input"
         return 1  # signal to restart
     fi
@@ -92,7 +92,7 @@ process_samples() {
     blast_exit=$?
 
     if [[ $blast_exit -ne 0 ]]; then
-        echo "$(date) - Γ¥î BLAST failed with exit $blast_exit for $sample. Skipping." | tee -a "$log"
+        echo "$(date) - ❌ BLAST failed with exit $blast_exit for $sample. Skipping." | tee -a "$log"
         rm -f "$outfile.tmp" "$blast_input"
         continue
     fi
@@ -100,7 +100,7 @@ process_samples() {
     sort -k1,1 -k6,6g "$outfile.tmp" | awk '!seen[$1]++' > "$outfile"
     rm -f "$outfile.tmp" "$blast_input"
 
-    echo "$(date) - Γ£à Finished BLAST for $sample" | tee -a "$log"
+    echo "$(date) - ✅ Finished BLAST for $sample" | tee -a "$log"
 
     echo "?? Summarizing genus proportions for $sample:" | tee -a "$log"
     python3 summarize_top_genus_proportions.py "$outfile" | tee -a "$log"
@@ -111,7 +111,7 @@ process_samples() {
 
     free_kb=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
     if [[ $free_kb -lt $MIN_MEM_KB ]]; then
-        echo "ΓÜá∩╕Å Low available memory (${free_kb} KB) after processing $sample. Exiting to avoid crash." | tee -a "$log"
+        echo "⚠️ Low available memory (${free_kb} KB) after processing $sample. Exiting to avoid crash." | tee -a "$log"
         return 1  # signal to restart
     fi
 
@@ -127,10 +127,10 @@ while true; do
   process_samples
   exitcode=$?
   if [[ $exitcode -eq 0 ]]; then
-    echo "Γ£à All samples processed."
+    echo "✅ All samples processed."
     break
   else
-    echo "ΓÜá∩╕Å Exiting early due to low memory. Sleeping $SLEEP_AFTER_EXIT seconds before retry..."
+    echo "⚠️ Exiting early due to low memory. Sleeping $SLEEP_AFTER_EXIT seconds before retry..."
     sleep $SLEEP_AFTER_EXIT
     echo "Restarting BLAST loop..."
   fi
