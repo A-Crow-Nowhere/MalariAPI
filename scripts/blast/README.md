@@ -39,12 +39,12 @@ conda activate blastenv
 cd~
 mkdir -p /tools/blast/contamdb/out
 cd /tools/blast/condtamdb
-wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/make_db.sh
+wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/blast/make_db.sh
 chmod +x make_db.sh
 ./make_db.sh
 ```
 
-### Create in and out directories. Fastas are analized in this exact directory and must end with .fasta
+### Create in and out directories. Fastas are analyzed in this exact directory and must end with .fasta
 ```bash
 cd~
 mkdir -p /tools/blast/fastas #MOVE FASTA FILE(S) HERE
@@ -65,7 +65,7 @@ chmod +x summarize.sh
 ./summarize.sh
 ```
 
-### Raw blast outputs will be in the /tools/blast/blastOut dir
+### Raw blast outputs and log files will be in the /tools/blast/blastOut dir
 ### summarized outputs will be in the /tools/blast dir
 ---
 
