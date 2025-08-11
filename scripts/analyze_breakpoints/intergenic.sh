@@ -2,49 +2,77 @@
 set -euo pipefail
 
 if [[ $# -ne 2 ]]; then
-  echo "Usage: $0 <dg_peaks.tsv> <annotation.gff>" >&2
+  echo "Usage: $0 <final_summary.tsv> <annotation.gff>" >&2
   exit 1
 fi
 
-DG_PEAKS="$1"
+PEAKS="$1"
 GFF="$2"
-OUTPUT="${DG_PEAKS%.tsv}.with_region.tsv"
+OUTPUT="${PEAKS%.tsv}.annotated.tsv"
 
-# Extract 'gene' features only, convert to BED (0-based, half-open)
-awk -F'\t' '$0 !~ /^#/ && $3=="gene" {print $1, $4-1, $5}' OFS='\t' "$GFF" > genes.bed
+echo "[INFO] Extracting CDS regions from GFF and converting to BED..."
+awk -F'\t' 'BEGIN {OFS="\t"}
+  $0 !~ /^#/ && $3 == "CDS" {
+    start = $4 - 1
+    if (start < 0) start = 0
+    print $1, start, $5
+  }
+' "$GFF" | sort -k1,1 -k2,2n > cds.bed
 
-# Convert DG peaks to BED format (chrom, start=pos-1, end=pos, rest of fields)
-awk -F'\t' -v OFS='\t' 'NR>1 {
-    chrom = $3;
-    pos = $8;
-    gsub(/[^0-9]/,"",pos);
-    start = pos - 1;
-    if (start < 0) start = 0;
-    end = pos;
-    print chrom, start, end, $0
-}' "$DG_PEAKS" > dg_peaks.bed.tmp
+echo "[DEBUG] Preview of cds.bed (first 5 lines):"
+head -n 5 cds.bed | cat -t
 
-# Find overlaps with genes
-bedtools intersect -a dg_peaks.bed.tmp -b genes.bed -wa -u > peaks_in_genes.bed
+echo "[INFO] Preparing peaks BED for bedtools intersect..."
+awk -F'\t' 'BEGIN {OFS="\t"}
+  NR > 1 {
+    chrom = $2
+    pos = $7
+    start = pos - 1
+    if (start < 0) start = 0
+    end = pos
+    print chrom, start, end
+  }
+' "$PEAKS" | sort -k1,1 -k2,2n > peaks.bed
 
-# Extract flank_name (column 2 in DG peaks = field 6 in dg_peaks.bed.tmp)
-awk -F'\t' '{print $6}' peaks_in_genes.bed | sort | uniq > genic_flanks.txt
+echo "[DEBUG] Preview of peaks.bed (first 5 lines):"
+head -n 5 peaks.bed | cat -t
 
-# Annotate DG peaks with genic/intergenic status
-{
-  read header
-  echo -e "${header}\tregion_type"
-  while IFS= read -r line; do
-    flank=$(echo "$line" | cut -f2)
-    if grep -qxF "$flank" genic_flanks.txt; then
-      echo -e "${line}\tgenic"
-    else
-      echo -e "${line}\tintergenic"
-    fi
-  done
-} < "$DG_PEAKS" > "$OUTPUT"
+echo "[DEBUG] File existence and type checks:"
+ls -l cds.bed peaks.bed
+file cds.bed peaks.bed
 
-# Clean up temporary files
-rm genes.bed dg_peaks.bed.tmp peaks_in_genes.bed genic_flanks.txt
+echo "[INFO] Running bedtools intersect to find peaks overlapping CDS regions..."
+bedtools intersect -a peaks.bed -b cds.bed -wa -u > peaks_in_cds.bed
 
-echo "✅ Annotation with gene features done. Output saved to $OUTPUT"
+echo "[DEBUG] peaks_in_cds.bed preview (first 5 lines):"
+head -n 5 peaks_in_cds.bed | cat -t
+
+echo "[INFO] Generating genic peaks coordinates list..."
+awk '{print $1, $2, $3}' peaks_in_cds.bed | tr ' ' '\t' | sort -k1,1 -k2,2n > genic_coords.tsv
+
+echo "[INFO] Annotating original peaks using fast awk join..."
+
+awk -F'\t' '
+  NR==FNR { # genic coords file
+    key = $1 FS $2 FS $3
+    genic[key] = 1
+    next
+  }
+  NR!=FNR { # peaks file
+    if (FNR == 1) {
+      print $0 "\tregion_type"
+      next
+    }
+    chrom = $2
+    abs_pos = $7
+    start = abs_pos - 1
+    key = chrom FS start FS abs_pos
+    region = (key in genic) ? "genic" : "intergenic"
+    print $0 "\t" region
+  }
+' genic_coords.tsv "$PEAKS" > "$OUTPUT"
+
+echo "[INFO] Cleaning up temporary files..."
+rm cds.bed peaks.bed peaks_in_cds.bed genic_coords.tsv
+
+echo "✅ Annotation complete. Output saved to $OUTPUT"
