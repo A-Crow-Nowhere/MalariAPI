@@ -12,8 +12,8 @@ No global installs required. The wrapper creates a local virtual environment and
 
 ```bash
 cd~
-mkdir ~tools/cnvsim
-cd ~tools/cnvsim
+mkdir -p tools/cnvsim
+cd tools/cnvsim
 wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/scripts/cnv_sim/cnv_sim_cli_bundle.zip
 unzip cnv_sim_cli_bundle.zip
 
