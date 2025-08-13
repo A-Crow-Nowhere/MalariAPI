@@ -11,11 +11,14 @@ All outputs are **BED‑style** and IGV‑ready.
 No global installs required. The wrapper creates a local virtual environment and installs Python dependencies for you.
 
 ```bash
-# 1) Unzip and enter the folder
+cd~
+mkdir ~tools/cnvsim
+cd ~tools/cnvsim
+wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/scripts/cnv_sim/cnv_sim_cli_bundle.zip
 unzip cnv_sim_cli_bundle.zip
-cd cnv_sim_cli_bundle
 
-# 2) See available flags (first run creates .venv and installs deps)
+
+See available flags (first run creates .venv and installs deps)
 ./run_cnv_sim.sh --help
 ```
 
