@@ -37,36 +37,26 @@ conda env create -f blastenv.yml
 conda activate blastenv
 
 cd~
-mkdir -p /tools/blast/contamdb/out
-cd /tools/blast/condtamdb
-wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/blast/make_db.sh
-chmod +x make_db.sh
-./make_db.sh
-```
-
-### Create in and out directories. Fastas are analyzed in this exact directory and must end with .fasta
-```bash
-cd~
-mkdir -p /tools/blast/fastas #MOVE FASTA FILE(S) HERE
-mkdir -p /tools/blast/blastOut
-```
-
-### Runs the code - the larger the fasta, the longer it takes. log files are produced mid run for you to check progress. To avoid blastn hangups and ensure that a file is actually produced, blast.sh remvoes reads that have a high incedence of 'n' and are less than 30bp
-```bash
-cd /tools/blast
+mkdir -p /bin/blast_tool/bin
 wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/scripts/blast/blast.sh
+wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/blast/make_db.sh
 wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/scripts/blast/summarize_top_genus_proportions.py
 wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/scripts/blast/summarize.sh
 
 chmod +x blast.sh
 chmod +x summarize.sh
+chmod +x make_db.sh
+
+mkdir -p your/path/fastas #MOVE FASTA FILE(S) HERE
+mkdir -p your/path/blastOut
+
+./make_db.sh #will take a while to construct customDB
 
 ./blast.sh
 ./summarize.sh
-```
 
-### Raw blast outputs and log files will be in the /tools/blast/blastOut dir
-### summarized outputs will be in the /tools/blast dir
+### Raw blast outputs and log files will be in the /your/path/blastOut dir
+### summarized outputs will be in the /your/path/blast dir
 ---
 
 
