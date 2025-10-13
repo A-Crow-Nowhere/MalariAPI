@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import os
 import time
@@ -5,17 +6,14 @@ import json
 from collections import Counter
 from Bio import Entrez
 
-Entrez.email = "EMAIL"  # Replace with your email if its giving errors
+Entrez.email = "EMAIL"  # Replace this with your email
 
 def extract_accession(sseqid):
     if sseqid in ["N/A", ".", "-", "", "Unknown"]:
         return "Unknown"
     if "|" in sseqid:
         parts = sseqid.split("|")
-        if len(parts) > 1 and parts[1]:
-            return parts[1]
-        else:
-            return parts[-1]
+        return parts[1] if len(parts) > 1 and parts[1] else parts[-1]
     return sseqid.strip()
 
 def fetch_genus_for_accessions(accessions):
@@ -27,7 +25,7 @@ def fetch_genus_for_accessions(accessions):
         batch = accessions[i:i+batch_size]
         accession_to_uid = {}
 
-        # Step 1: Resolve accessions to UIDs
+        # Step 1: Accessions → UIDs
         for acc in batch:
             try:
                 search_handle = Entrez.esearch(db="nucleotide", term=f"{acc}[Accession]", retmode="json")
@@ -47,7 +45,7 @@ def fetch_genus_for_accessions(accessions):
         if not uids:
             continue
 
-        # Step 2: Fetch summary from UID
+        # Step 2: UID → Genus
         try:
             summary_handle = Entrez.esummary(db="nucleotide", id=",".join(uids), retmode="json")
             summary_results = json.load(summary_handle)
@@ -66,10 +64,9 @@ def fetch_genus_for_accessions(accessions):
             for acc in accession_to_uid.keys():
                 genuses[acc] = "Unknown"
 
-        time.sleep(0.34)  # polite delay
+        time.sleep(2.04)  # NCBI rate limit
 
     return genuses
-
 
 def main():
     if len(sys.argv) != 2:
@@ -97,37 +94,27 @@ def main():
 
     print(f"🔍 Found {len(read_to_acc)} unique reads.")
 
-    # Genus lookup
-    unique_acc = sorted(set(acc_list))
-    acc_to_genus = fetch_genus_for_accessions(unique_acc)
+    total_reads = len(acc_list)
+    acc_to_genus = fetch_genus_for_accessions(sorted(set(acc_list)))
 
     genus_counts = Counter()
-    unknown_genus_reads = 0
     for acc in acc_list:
         genus = acc_to_genus.get(acc, "Unknown")
-        if genus == "Unknown":
-            unknown_genus_reads += 1
         genus_counts[genus] += 1
 
-    total_reads = len(acc_list)
-
-    # Format TSV output
-    output_lines = ["genus\tpercentage"]
+    # Create output table
+    output_lines = ["genus\tpercentage\tnumber"]
     for genus, count in genus_counts.most_common():
         percent = 100 * count / total_reads
-        output_lines.append(f"{genus}\t{percent:.2f}")
+        output_lines.append(f"{genus}\t{percent:.2f}\t{count}")
 
-    output_text = "\n".join(output_lines)
-    print(output_text)
-
-    # Save TSV
-    outdir = "blastOut"
-    os.makedirs(outdir, exist_ok=True)
-    output_file = os.path.join(outdir, f"{sample_name}.genus_proportions.tsv")
+    # Save output
+    os.makedirs("blastOut", exist_ok=True)
+    output_file = os.path.join("blastOut", f"{sample_name}.genus_proportions.tsv")
     with open(output_file, "w") as outf:
-        outf.write(output_text + "\n")
+        outf.write("\n".join(output_lines) + "\n")
 
-    print(f"\n✅ TSV output written to {output_file}")
+    print(f"✅ TSV output written to {output_file}")
 
 if __name__ == "__main__":
     main()
