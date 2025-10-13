@@ -57,7 +57,7 @@ mkdir -p your/path/blastOut
 ./summarize.sh
 
 ### Raw blast outputs and log files will be in the /your/path/blastOut dir
-### summarized outputs will be in the /your/path/blast dir
+### summarized outputs will be in the the working dir
 ---
 
 
