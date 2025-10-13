@@ -1,82 +1,57 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env python3
 
-# Default to 'blastOut' if no argument is provided
-BLAST_DIR=${1:-blastOut}
-
-python3 - "$BLAST_DIR" <<EOF
 import os
-import sys
+import glob
 import pandas as pd
+import numpy as np
+import argparse
 
-blast_dir = sys.argv[1]
-rows = []
-all_samples = []
+def summarize_blast_folder(blast_dir):
+    # Look for files ending with .genus_proportions.tsv
+    pattern = os.path.join(blast_dir, "*.genus_proportions.tsv")
+    all_files = sorted(glob.glob(pattern))
+    if not all_files:
+        raise FileNotFoundError(f"No .genus_proportions.tsv files found in directory: {blast_dir}")
 
-for filename in os.listdir(blast_dir):
-    if filename.endswith(".genus_proportions.tsv"):
-        sample_name = filename.replace(".genus_proportions.tsv", "")
-        all_samples.append(sample_name)
-        filepath = os.path.join(blast_dir, filename)
+    data = {}
 
-        try:
-            df = pd.read_csv(filepath, sep="\\t")
-        except Exception:
-            df = pd.DataFrame()
+    for file_path in all_files:
+        sample_name = os.path.basename(file_path).replace(".genus_proportions.tsv", "")
+        df = pd.read_csv(file_path, sep="\t")
 
-        if df.empty or not {"genus", "percentage", "number"}.issubset(df.columns):
-            # No hits or malformed — still include empty entry
-            rows.append({
-                "Sample": sample_name,
-                "Category": "NoHits",
-                "Percentage": 0,
-                "Number": 0,
-                "TotalReads": 0
-            })
-            continue
+        # Columns are lowercase: genus, percentage, number
+        label_col = 'genus'
+        pct_col = 'percentage'
 
-        total = df["number"].sum()
+        if label_col not in df.columns or pct_col not in df.columns:
+            raise ValueError(f"Expected columns '{label_col}' and '{pct_col}' in {file_path}")
 
         for _, row in df.iterrows():
-            category = row["genus"]
-            percent = row["percentage"]
-            count = row["number"]
-            rows.append({
-                "Sample": sample_name,
-                "Category": category,
-                "Percentage": percent,
-                "Number": count,
-                "TotalReads": total
-            })
+            category = row[label_col]
+            percentage = row[pct_col]
+            if category not in data:
+                data[category] = []
+            data[category].append(percentage)
 
-# Convert to dataframe
-summary_df = pd.DataFrame(rows)
+    summary_rows = []
+    for category, proportions in data.items():
+        mean = np.mean(proportions)
+        std = np.std(proportions)
+        sample_count = len(proportions)
+        details = ','.join([f"{p:.2f}" for p in proportions])
+        summary_rows.append([category, mean, std, details, sample_count])
 
-# Ensure all samples are included in pivot table, even if completely missing
-if not summary_df.empty:
-    summary_df.to_csv("summary_by_sample.tsv", sep="\\t", index=False)
-    print("✅ Summary by sample saved to summary_by_sample.tsv")
+    summary_df = pd.DataFrame(summary_rows, columns=["Category", "Mean%", "StdDev%", "Total", "N_samples"])
+    summary_df.sort_values(by="Mean%", ascending=False, inplace=True)
+    summary_df.to_csv("summary_total.tsv", sep="\t", index=False)
 
-    pivot_df = summary_df.pivot_table(index="Sample", columns="Category", values="Percentage", fill_value=0)
-    pivot_df["TotalReads"] = summary_df.groupby("Sample")["TotalReads"].first().reindex(pivot_df.index, fill_value=0)
-else:
-    # Empty result fallback
-    pivot_df = pd.DataFrame({"TotalReads": [0 for _ in all_samples]}, index=all_samples)
-
-pivot_df.to_csv("summary_matrix.tsv", sep="\\t")
-print("✅ Summary matrix saved to 'summary_matrix.tsv'")
-
-# Summary stats (only for non-empty categories)
-if not summary_df.empty:
-    stats_df = summary_df.groupby("Category").agg({
-        "Percentage": ["mean", "std", lambda x: ",".join(f"{v:.2f}" for v in x)],
-        "Sample": "count"
-    })
-    stats_df.columns = ["Mean", "StdDev", "AllPercentages", "SampleCount"]
-    stats_df.to_csv("summary_total.tsv", sep="\\t")
-    print("✅ Summary statistics saved to 'summary_total.tsv'")
-else:
-    with open("summary_total.tsv", "w") as f:
-        f.write("No data available\\n")
-    print("⚠️ No hits found in any sample. Empty summary written.")
-EOF
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Summarize genus proportions from BLAST output.")
+    parser.add_argument(
+        "--blast-dir",
+        type=str,
+        default="blastOut",
+        help="Directory containing .genus_proportions.tsv files (default: blastOut)"
+    )
+    args = parser.parse_args()
+    summarize_blast_folder(args.blast_dir)
