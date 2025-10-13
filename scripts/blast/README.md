@@ -43,6 +43,7 @@ wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/blast
 wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/scripts/blast/summarize_top_genus_proportions.py
 wget https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/scripts/blast/summarize.sh
 
+chmod +x summarize_top_genus_proportions.py
 chmod +x blast.sh
 chmod +x summarize.sh
 chmod +x make_db.sh
