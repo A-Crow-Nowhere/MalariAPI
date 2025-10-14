@@ -26,7 +26,7 @@ things like:
 ./A_custom_modified_package.sh (that you got from somewhere else)
 
 ```
-## Keep in mind that ~/tools/ is the designated directory for tools and scripts funcitoning inside MalariAPI
+## Keep in mind that ~/tools/ is the designated directory for writing tools and scripts funcitoning inside MalariAPI
 ---
 
 ## Prerequisites
