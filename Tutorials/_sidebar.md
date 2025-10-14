@@ -1,10 +1,1 @@
-- Getting Started
-  - [Overview](README.md)
-  - [Setup](setup.md)
-  - [Quick Start](quickstart.md)
-- Guides
-  - [Import Data](guides/import.md)
-  - [Export Data](guides/export.md)
-- Reference
-  - [API](reference/api.md)
-  - [CLI](reference/cli.md)
+
