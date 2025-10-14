@@ -7,7 +7,15 @@
    5. A list and description of the tools avalible in this Github repo
    6. A graphical representation of where to find files in the repo
 
+## Quick links
+- [Setup](docs/setup.md)
+- [Quick Start](docs/quickstart.md)
+- [Import](docs/guides/import.md)
+- [API Reference](docs/reference/api.md)
+
+
 # Ubuntu WSL + MobaXterm Setup Guide for Windows
+
 
 This guide walks you through setting up a fully functional Ubuntu WSL environment on a Windows machine and connecting to it using MobaXterm.
 ---
