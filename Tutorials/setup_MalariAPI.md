@@ -1,0 +1,30 @@
+# Configure MalariAPI Environment in mobaxterm
+
+### 🔧 Update and Install Useful Tools
+
+Inside WSL:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y build-essential git curl unzip htop openssh-server micro samtools bedtools
+mkdir tools
+mkdir bin
+mkdir -p envs/yaml
+mkdir /tools/miniconda3
+cd tools/miniconda3
+
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O .
+bash ../miniconda.sh -b -u -p .
+rm ../miniconda.sh
+source ~/tools/miniconda3/bin/activate
+conda init --all
+
+conda config --add channels bioconda
+conda config --add channels conda-forge
+conda config --set channel_priority strict
+
+#For a variety of dependency issues samtools and bedtools will be installed in the highest level
+#executable bin. 
+#I will write any text editing commands with 'micro' but you can use vim or nano if you prefer. 
+```
+You're ready to move on to recreating the MalariAPI codebase.
