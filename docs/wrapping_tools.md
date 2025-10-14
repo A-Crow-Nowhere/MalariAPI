@@ -8,7 +8,8 @@ Make your scripts runnable from anywhere with clean commands. This doc shows two
 Each includes a blank, copy-pasteable wrapper and an optional **environment activation** (conda/mamba/venv).
 
 *USE THIS WHEN YOU HAVE A SCRIPT/TOOL MADE IN A FOLDER OTHER THAN '~/BIN', AND DONT WANT TO MOVE IT FOR WHATEVER REASON*
-*IF YOUR SCRIPT CAN BE RUN AS A ONE-OFF FROM ITS OWN DIRECTORY, THEN JUST COPY AND PASTE IT INTO ~/BIN AND IT WILL RUN ANYWHERE*
+*IF YOUR SCRIPT CAN BE RUN AS A ONE-OFF FROM ITS OWN DIRECTORY, THEN JUST COPY AND PASTE IT INTO ~/BIN* 
+*AND IT WILL RUN ANYWHERE*
 ```
 # eg.:
 # *if your script/tool works like*
@@ -25,7 +26,7 @@ things like:
 ./A_custom_modified_package.sh (that you got from somewhere else)
 
 ```
-
+Keep in mind that ~/tools/ is the designated directory for tools and scripts funcitoning inside MalariAPI
 ---
 
 ## Prerequisites
