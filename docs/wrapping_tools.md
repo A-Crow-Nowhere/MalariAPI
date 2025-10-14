@@ -7,6 +7,25 @@ Make your scripts runnable from anywhere with clean commands. This doc shows two
 
 Each includes a blank, copy-pasteable wrapper and an optional **environment activation** (conda/mamba/venv).
 
+*USE THIS WHEN YOU HAVE A SCRIPT/TOOL MADE IN A FOLDER OTHER THAN '~/BIN', AND DONT WANT TO MOVE IT FOR WHATEVER REASON*
+*IF YOUR SCRIPT CAN BE RUN AS A ONE-OFF FROM ITS OWN DIRECTORY, THEN JUST COPY AND PASTE IT INTO ~/BIN AND IT WILL RUN ANYWHERE*
+```
+# eg.:
+# *if your script/tool works like*
+
+./tool.sh (runs across an entire directory)
+./tool.sh --options file.txt (runs on a single file within the directory)
+Then just copy and paste it into  ~/bin
+
+# *if your script/tool has depdancies and folders and such that complicate its running*
+# (and it doesnt automatically construct them during run time), then follow the wrapper scripts here
+
+things like:
+./An_R_Package.sh
+./A_custom_modified_package.sh (that you got from somewhere else)
+
+```
+
 ---
 
 ## Prerequisites
