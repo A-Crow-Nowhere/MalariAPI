@@ -104,9 +104,6 @@ hash -r
 **Use when:** you have a tool folder with many executables, e.g.:
 
 ```
-# pick the layout you use
-~/tools/<tool>/bin/      # common if you keep tools under ~/tools
-# or
 ~/bin/<tool>/bin/        # if you keep tool folders under ~/bin
 ```
 
