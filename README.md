@@ -15,3 +15,45 @@ bash <(curl -fsSL https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/mai
 # or:
 # wget -qO- https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/mapi/install.sh | bash
 ```
+
+```MalariAPI/
+├── README.md
+│
+├── setup/
+│   └── mapi/
+│       ├── install.sh
+│       │
+│       ├── bin/
+│       │   ├── mapi                        # dispatcher (executable)
+│       │   └── mapi.d/
+│       │       ├── fastqc.sh
+│       │       ├── fastp.sh
+│       │       ├── bwa.sh
+│       │       ├── lumpy.sh
+│       │       ├── run.sh
+│       │       ├── pipeline.sh -> run.sh   # symlink alias
+│       │       └── doctor.sh               # optional diagnostic subcommand
+│       │
+│       ├── envs/
+│       │   └── yaml/
+│       │       ├── fastqc.yaml
+│       │       ├── fastp.yaml
+│       │       ├── bwa-mem2.yaml
+│       │       ├── lumpy.yaml
+│       │       └── yourtool.yaml           # template placeholder
+│       │
+│       ├── tools/
+│       │   └── mapi/
+│       │       └── lib.sh                  # shared helper functions
+│       │
+│       ├── templates/
+│       │   ├── yourtool.sh                 # blank module template
+│       │   └── yourtool.yaml               # blank env template
+│       │
+│       └── README_MAPI.md                  # usage + quick install guide
+│
+└── docs/
+    ├── module-contract.md                  # required structure for modules
+    ├── env-yaml-contract.md                # required structure for env YAMLs
+    └── templates.md                        # reference + templates for new tools
+```
