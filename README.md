@@ -7,8 +7,8 @@
    5. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
    6. A list and description of the tools avalible in this Github repo
 
-## Quik Install MalariAPI (MAPI)
-# MAPI (MalariAPI) — Bash-first Modular Runner
+## Quick Install MalariAPI (MAPI)
+### MAPI (MalariAPI) — Bash-first Modular Runner
 ```
 ## Quick install
 bash <(curl -fsSL https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/mapi/install.sh)
