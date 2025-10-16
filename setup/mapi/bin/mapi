@@ -1,1 +1,54 @@
+#!/usr/bin/env bash
+# ============================================================
+# MAPI Dispatcher
+# ------------------------------------------------------------
+# Routes calls like `mapi fastqc ...` to ~/bin/mapi.d/fastqc.sh
+# ------------------------------------------------------------
+# Usage:
+#   mapi <command> [options]
+#   mapi help
+# ============================================================
+
+set -euo pipefail
+
+CMDDIR="$HOME/bin/mapi.d"
+SUBCMD="${1:-}"
+shift || true
+SCR="$CMDDIR/${SUBCMD}.sh"
+
+list_cmds() {
+  echo "Available commands:"
+  for f in "$CMDDIR"/*.sh; do
+    [[ -e "$f" ]] || continue
+    echo "  $(basename "${f%.sh}")"
+  done | sort
+}
+
+case "$SUBCMD" in
+  ""|-h|--help|help)
+    cat <<'EOF'
+Usage:
+  mapi <command> [options]
+
+Examples:
+  mapi fastqc -o out sample_R1.fastq.gz sample_R2.fastq.gz
+  mapi fastp  -o out -p S -1 R1.fq.gz -2 R2.fq.gz
+  mapi bwa    -r ref.fa -o out -p S -1 R1.fq.gz -2 R2.fq.gz
+  mapi lumpy  -i S.sorted.bam -o out -p S
+  mapi run    --sample-dir ./Sample123 --ref ref.fa --threads 8
+  mapi doctor  # check installation
+EOF
+    list_cmds
+    exit 0
+    ;;
+esac
+
+if [[ -x "$SCR" ]]; then
+  exec "$SCR" "$@"
+else
+  echo "mapi: unknown command '$SUBCMD'"
+  echo
+  list_cmds
+  exit 1
+fi
 
