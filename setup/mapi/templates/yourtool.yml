@@ -1,0 +1,13 @@
+# Template environment for a MAPI module
+# Copy to:  ~/envs/yaml/yourtool.yaml
+# Contract: https://github.com/<YOUR_GH_USER>/MalariAPI/blob/main/docs/env-yaml-contract.md
+
+name: yourtool-env          # MUST match ENV_NAME in yourtool.sh
+channels: [conda-forge, bioconda, defaults]
+dependencies:
+  - yourtool=1.*            # ← replace with the actual package & pin
+  # - samtools=1.20         # ← add any CLIs your module calls directly
+  # - python=3.11           # ← only if needed
+  # - pip
+  # - pip:
+  #   - some-pip-only-package==x.y.z
