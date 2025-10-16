@@ -22,6 +22,9 @@ conda config --add channels bioconda
 conda config --add channels conda-forge
 conda config --set channel_priority strict
 
+
+conda env create -f base_environment.yaml
+
 #For a variety of dependency issues samtools and bedtools will be installed in the highest level
 #executable bin. 
 #I will write any text editing commands with 'micro' but you can use vim or nano if you prefer. 
