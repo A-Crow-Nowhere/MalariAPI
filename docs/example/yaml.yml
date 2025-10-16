@@ -1,0 +1,4 @@
+name: yourtool-env
+channels: [conda-forge, bioconda, defaults]
+dependencies:
+  - yourtool=1.*
