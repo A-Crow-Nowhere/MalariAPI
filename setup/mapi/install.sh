@@ -87,13 +87,11 @@ bin/mapi.d/fastp.sh:::${CMDDIR}/fastp.sh
 bin/mapi.d/bwa.sh:::${CMDDIR}/bwa.sh
 bin/mapi.d/lumpy.sh:::${CMDDIR}/lumpy.sh
 bin/mapi.d/run.sh:::${CMDDIR}/run.sh
-bin/mapi.d/doctor.sh:::${CMDDIR}/doctor.sh
 tools/mapi/lib.sh:::${TOOLS}/lib.sh
 envs/yaml/fastqc.yaml:::${ENVYAML}/fastqc.yaml
 envs/yaml/fastp.yaml:::${ENVYAML}/fastp.yaml
 envs/yaml/bwa-mem2.yaml:::${ENVYAML}/bwa-mem2.yaml
 envs/yaml/lumpy.yaml:::${ENVYAML}/lumpy.yaml
-README_MAPI.md:::${TOOLS}/README_MAPI.md
 templates/yourtool.yaml:::${ENVYAML}/yourtool.yaml
 templates/yourtool.sh:::${CMDDIR}/yourtool.sh
 EOF
