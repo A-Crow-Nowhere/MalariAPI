@@ -49,8 +49,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/mai
 │       ├── templates/
 │       │   ├── yourtool.sh                 # blank module template
 │       │   └── yourtool.yaml               # blank env template
-│       │
-│       └── README_MAPI.md                  # usage + quick install guide
 │
 └── docs/
     ├── module-contract.md                  # required structure for modules
