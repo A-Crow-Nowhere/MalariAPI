@@ -1,0 +1,6 @@
+name: bwa-mem2-env
+channels: [conda-forge, bioconda, defaults]
+dependencies:
+  - bwa-mem2=2.2.*
+  - samtools=1.20
+  - pigz

@@ -1,0 +1,6 @@
+name: lumpy-env
+channels: [conda-forge, bioconda, defaults]
+dependencies:
+  - lumpy-sv   # pin later to your preferred version
+  - samtools=1.20
+  - pysam

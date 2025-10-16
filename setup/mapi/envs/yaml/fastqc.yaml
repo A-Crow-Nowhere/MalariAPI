@@ -1,0 +1,5 @@
+name: fastqc-env
+channels: [conda-forge, bioconda, defaults]
+dependencies:
+  - fastqc=0.12.*
+  - openjdk
