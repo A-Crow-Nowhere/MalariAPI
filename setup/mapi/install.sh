@@ -8,7 +8,7 @@ set -euo pipefail
 # enables the `mapi` dispatcher + subcommands.
 
 # --- EDIT ME: point to your raw GitHub base once you publish ---
-BASEURL_DEFAULT="https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/mapi"
+BASEURL_DEFAULT="https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/tools/mapi"
 
 DRYRUN=0
 BASEURL="$BASEURL_DEFAULT"
