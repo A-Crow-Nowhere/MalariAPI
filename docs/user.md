@@ -65,18 +65,6 @@ This will:
 
 ---
 
-## 🧠 Folder structure after install
-
-```
-~/MalariAPI/
-├── bin/              → MAPI launcher + scripts
-├── modules/          → Module wrappers
-├── pipeline/         → Multi-step pipelines
-├── tools/            → Installer + env YAMLs
-├── templates/        → Boilerplate templates
-└── envs/             → Auto-generated Conda environments
-```
-
 ---
 
 ## 🔋 Tips
