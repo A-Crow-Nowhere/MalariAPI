@@ -11,12 +11,13 @@ This document explains how to set up your environment, create new modules or pip
 MalariAPI/
 ├── bin/              → MAPI launcher + helper wrappers
 ├── modules/          → Single-step MAPI tools (e.g., summarize_bam.sh)
+│   └── yaml/         → Environment specs (installer builds from these)
 ├── pipeline/         → Multi-step pipelines
+│   └── yaml/         → Environment specs (installer builds from these)
 ├── packages/         → External R/Python integrations
 ├── scripts/          → Standalone conversion scripts
 ├── templates/        → Boilerplate YAMLs and bash templates
 ├── tools/            → Installer, validator, environment YAMLs
-│   ├── yaml/         → Environment specs (installer builds from these)
 │   └── install_mapi.sh
 └── envs/             → Actual Conda runtime environments (auto-created)
 ```
