@@ -1,0 +1,20 @@
+name: base
+channels:
+  - defaults
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.13
+  - pip
+  - setuptools
+  - wheel
+  - requests
+  - tqdm
+  - rich
+  - pyyaml
+  - cryptography
+  - typing-extensions
+  - numpy        # add if needed
+  - pandas       # add if needed
+  - matplotlib   # add if needed
+  - biopython    # useful for bioconda workflows

@@ -1,0 +1,27 @@
+# MAPI module YAML template (validator-friendly)
+# Recommended final location: bin/modules/yaml/<name>.yml
+name: __MODULE_NAME__
+version: 0.1
+
+ env:
+   conda: ~/MalariAPI/envs/yaml/template.yml   # ← uncomment when you have a real env file
+# (Leaving env.conda unset gives W121 instead of E122 while templating.)
+
+inputs:
+  - name: in1
+    flag: --in
+    required: true
+  - name: in2
+    flag: --in2
+    required: false
+
+outputs:
+  - name: outdir
+    flag: --out
+    required: true
+
+about:
+  summary: "Template for a single-step module."
+  description: |
+    Copy this file to bin/modules/yaml/<name>.yml and set 'env.conda' to a
+    real file under envs/yaml/<env-name>.yml. Flags should match your wrapper.
