@@ -12,10 +12,10 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
 ## Quick Install MalariAPI (MAPI)
 ### MAPI (MalariAPI) — Bash-first Modular Runner
 ```
-## Quick install
-bash <(curl -fsSL https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/mapi/install.sh)
-# or:
-# wget -qO- https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/setup/mapi/install.sh | bash
+# Quick install
+curl -fsSL https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/tools/install_mapi.sh -o install_mapi.sh
+chmod +x install_mapi.sh
+MINICONDA_HOME="$HOME/tools/miniconda3" ./install_mapi.sh
 ```
 
 ```MalariAPI/
