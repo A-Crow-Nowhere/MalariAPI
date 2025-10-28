@@ -4,7 +4,7 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
 ## Quick Links:
    1. [Setup a functional environment](docs/setup_MalariAPI.md) 
    2. [Install base MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/PopulateMAPI.md)
-   3. [beginner user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/user.md) OR  [Contributer user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/contributer.md)
+   3. [Beginner user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/user.md) OR  [Contributer user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/contributer.md)
    4. [Creating modules and pipelines](docs/wrapping_tools.md)
    5. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
    6. A list and description of the tools avalible in this Github repo
@@ -19,37 +19,32 @@ MINICONDA_HOME="$HOME/tools/miniconda3" ./install_mapi.sh
 ```
 
 ```MalariAPI/
-MalariAPI/
-├── bin/					   # all executables (entrypoints live here)
-│ ├── mapi					# main launcher (single file)
-│ ├── modules/				# (NEW) flat module scripts + central YAMLs
-│ │ ├── fastp.sh			# module executables live directly here
-│ │ ├── bwa.sh				# e.g., "bwa.sh" runs the BWA module
-│ │ ├── markdup.sh
-│ │ └── yaml/				# all module metadata & parameter files
-│ │ ├── fastp.yml
-│ │ ├── bwa.yml
-│ │ ├── markdup.yml
-│ │ └── <name>.params.yml 
-│ ├── packages/				# 3rd-party tools with MAPI shims
-│ │ └── <tool_name>/
-│ │ ├── <tool_name>			# required wrapper name (entrypoint)
-│ │ ├── bin/				   # (optional) vendor binaries, if any
-│ │ ├── package.yml			# metadata + env resolution
-│ │ └── README.md
-│ ├── pipelines/			   # mapi-conformant pipelines
-│ │ └── <pipeline_name>/
-│ │ ├── run.sh				   # required pipeline entrypoint
-│ │ ├── pipeline.yml		   # required metadata & DAG hints
-│ │ └── README.md
-│ ├── scripts/				   # small helpers (non-conformant OK)
-│ │ └── vcf_to_bed.sh (ex)
-│ └── templates/			   # scaffolds for new modules/pipelines
-│ ├── module_skel/
-│ └── pipeline_skel/
-├── envs/
-│ └── yaml/		    		   # conda/mamba environments (full envs)
-├── genomes/				   # (optional) references (gitignored)
-├── scratch/				   # empty workspace (gitignored)
-└── docs/		   			# user docs including this guide		
+├── bin
+│   ├── mapi
+│   ├── modules
+│   │   ├── easteregg.sh
+│   │   ├── summarize_bam.sh
+│   │   └── yaml
+│   ├── packages
+│   ├── pipelines
+│   │   └── yaml
+│   ├── scripts
+│   │   ├── bed_to_igv.sh
+│   │   ├── bed_to_vcf.sh
+│   │   └── vcf_to_bed.sh
+│   └── templates
+│       ├── module_template.sh
+│       ├── module_template.yml
+│       ├── package_wrapper_template
+│       ├── pipeline_template.sh
+│       └── pipeline_template.yml
+├── envs
+│   └── base.yml
+├── genomes
+├── package_depot
+└── tools
+    ├── gen_env.sh
+    ├── install_mapi.sh
+    └── validate.sh
+
 ```
