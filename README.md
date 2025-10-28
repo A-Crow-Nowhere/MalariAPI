@@ -4,7 +4,7 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
 ## Quick Links:
    1. [Setup a functional environment](docs/setup_MalariAPI.md) 
    2. [Install base MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/PopulateMAPI.md)
-   3. [Beginners guide to navigating MAPI]()
+   3. [beginner user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/user.md) OR  [Contributer user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/contributer.md)
    4. [Creating modules and pipelines](docs/wrapping_tools.md)
    5. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
    6. A list and description of the tools avalible in this Github repo
