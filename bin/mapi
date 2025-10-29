@@ -1,60 +1,223 @@
-# --- Conda lock (as added before) ---
-: "${MAPI_CONDA_ROOT:="$HOME/tools/miniconda3"}"
-export PATH="$MAPI_CONDA_ROOT/bin:$PATH"
-export CONDA_ENVS_DIRS="$MAPI_CONDA_ROOT/envs"
-[[ -f "$MAPI_CONDA_ROOT/etc/profile.d/conda.sh" ]] && source "$MAPI_CONDA_ROOT/etc/profile.d/conda.sh"
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
+
+
+THIS="$(readlink -f "$0" 2>/dev/null || python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$0")"
+REPO_ROOT="$(cd "$(dirname "$THIS")/.." && pwd)"
+# --- Conda lock (auto-detect) ---
+resolve_conda_root() {
+  for cand in \
+    "${MAPI_CONDA_ROOT:-}" \
+    "$REPO_ROOT/tools/miniconda3" \
+    "$HOME/MalariAPI/tools/miniconda3" \
+    "$HOME/tools/miniconda3"
+  do
+    [[ -n "$cand" && -x "$cand/bin/conda" ]] && { echo "$cand"; return 0; }
+  done
+  if command -v conda >/dev/null 2>&1; then
+    # fallback to whatever is on PATH
+    python3 - <<'PY'
+import os, shutil
+p = shutil.which("conda")
+print(os.path.realpath(os.path.join(os.path.dirname(p), "..")) if p else "", end="")
+PY
+    return 0
+  fi
+  return 1
+}
+
+CONDA_ROOT="$(resolve_conda_root)" || { echo "[error] conda not found (set MAPI_CONDA_ROOT)"; exit 1; }
+export PATH="$CONDA_ROOT/bin:$PATH"
+export CONDA_ENVS_DIRS="$REPO_ROOT/envs"
+[[ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]] && source "$CONDA_ROOT/etc/profile.d/conda.sh"
 # --- end ---
 
-SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || python3 - <<'PY'
-import os,sys; print(os.path.realpath(sys.argv[1]))
-PY
-"$0")"
-REPO_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+# Repo layout
 BIN_DIR="$REPO_ROOT/bin"
-MOD_DIR="$REPO_ROOT/bin/modules"
-MOD_YAML_DIR="$MOD_DIR/yaml"
-PIPE_DIR="$REPO_ROOT/bin/pipelines"
-PIPE_YAML_DIR="$PIPE_DIR/yaml"
-PKG_DIR="$BIN_DIR/packages"
+MOD_DIR="$BIN_DIR/modules"          # bin/modules/<name>.sh
+PIPE_DIR="$BIN_DIR/pipelines"       # bin/pipelines/<name>.sh
+PKG_DIR="$BIN_DIR/packages"         # bin/packages/<name>/<name>
+TOOLS_DIR="$REPO_ROOT/tools"        # tools/*.sh or *.py   (NEW)
 
 
-find_module_yaml(){ n="$1"; for c in "$MOD_YAML_DIR/$n.yml" "$MOD_YAML_DIR/$n.yaml"; do [[ -f "$c" ]] && { echo "$c"; return; }; done; return 1; }
-find_pipeline_yaml(){ n="$1"; for c in "$PIPE_YAML_DIR/$n.yml" "$PIPE_YAML_DIR/$n.yaml"; do [[ -f "$c" ]] && { echo "$c"; return; }; done; return 1; }
+# Helpers to find metadata YAMLs (unchanged behavior)
+find_module_yaml() {
+  local n="$1"
+  local candidates=(
+    "$REPO_ROOT/modules/yaml/$n.yml"
+    "$REPO_ROOT/modules/yaml/$n.yaml"
+    "$BIN_DIR/modules/yaml/$n.yml"
+    "$BIN_DIR/modules/yaml/$n.yaml"
+  )
+  for c in "${candidates[@]}"; do
+    [[ -f "$c" ]] && { echo "$c"; return 0; }
+  done
+  return 1
+}
 
-list_items(){
+get_env_name_from_yaml() {
+  local y="$1"
+  grep -E '^env_name:' "$y" | sed 's/env_name:[[:space:]]*//'
+}
+
+find_pipeline_yaml() {
+  local n="$1"
+  for c in "$PIPE_YAML_DIR/$n.yml" "$PIPE_YAML_DIR/$n.yaml"; do
+    [[ -f "$c" ]] && { echo "$c"; return 0; }
+  done
+  return 1
+}
+
+# ---- LISTING (now ignores hidden everywhere) ----
+list_items() {
   case "$1" in
-    modules)   find "$MOD_DIR"  -maxdepth 1 -type f -name '*.sh' -printf '%f\n' | sed 's/\.sh$//' | sort ;;
-    pipelines) find "$PIPE_DIR" -maxdepth 1 -type f -name '*.sh' -printf '%f\n' | sed 's/\.sh$//' | sort ;;
-     packages)  find "$PKG_DIR"  -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort ;;
-    scripts)   find "$BIN_DIR/scripts" -maxdepth 1 -type f -executable -printf '%f\n' 2>/dev/null | sort ;;
-    *) echo "unknown type: $1" >&2; exit 2;;
+    modules)
+      [[ -d "$MOD_DIR" ]] && \
+        find "$MOD_DIR" -maxdepth 1 -type f -name '*.sh' ! -name '.*' -printf '%f\n' 2>/dev/null \
+        | sed 's/\.sh$//' | sort || true
+      ;;
+    pipelines)
+      [[ -d "$PIPE_DIR" ]] && \
+        find "$PIPE_DIR" -maxdepth 1 -type f -name '*.sh' ! -name '.*' -printf '%f\n' 2>/dev/null \
+        | sed 's/\.sh$//' | sort || true
+      ;;
+    packages)
+      [[ -d "$PKG_DIR" ]] && \
+        find "$PKG_DIR" -maxdepth 1 -mindepth 1 -type d ! -name '.*' -printf '%f\n' 2>/dev/null \
+        | sort || true
+      ;;
+    scripts)
+      [[ -d "$BIN_DIR/scripts" ]] && \
+        find "$BIN_DIR/scripts" -maxdepth 1 -type f -executable ! -name '.*' -printf '%f\n' 2>/dev/null \
+        | sort || true
+      ;;
+    tools)  # NEW
+      [[ -d "$TOOLS_DIR" ]] && \
+        find "$TOOLS_DIR" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' \) ! -name '.*' -printf '%f\n' 2>/dev/null \
+        | sed -E 's/\.(sh|py)$//' | sort || true
+      ;;
+    *)
+      echo "unknown type: $1" >&2; return 2
+      ;;
   esac
 }
 
-run_item(){
-  t="$1"; shift; name="$1"; shift || true
-  case "$t" in
+usage() {
+  cat <<EOF
+Usage:
+  mapi --help
+  mapi <type>                 # lists items of that type
+  mapi <type> <name> [args...]# runs the item
 
-  modules)
-    entry="$MOD_DIR/$name.sh"; meta="$(find_module_yaml "$name" || true)"
-    export MAPI_REPO_ROOT="$REPO_ROOT" MAPI_ENVS_DIR="$REPO_ROOT/envs/yaml"
-    [[ -n "${meta:-}" ]] && export MAPI_MODULE_YAML="$meta"
-    exec "$entry" "$@"
-    ;;
-  pipelines)
-    entry="$PIPE_DIR/$name.sh"; meta="$(find_pipeline_yaml "$name" || true)"
-    export MAPI_REPO_ROOT="$REPO_ROOT" MAPI_ENVS_DIR="$REPO_ROOT/envs/yaml"
-    [[ -n "${meta:-}" ]] && export MAPI_PIPELINE_YAML="$meta"
-    exec "$entry" "$@"
-    ;;
-  packages)
-    entry="$PKG_DIR/$name/$name"
-    exec "$entry" "$@"
-    ;;
-  scripts)
-    entry="$BIN_DIR/scripts/$name"; [[ -x "$entry" ]] || { echo "No $entry" >&2; exit 4; }
-    exec "$entry" "$@"
-    ;;
-   *) echo "unknown type: $t" >&2; exit 2;;
+Types:
+  modules    -> $MOD_DIR/<name>.sh
+  pipelines  -> $PIPE_DIR/<name>.sh   
+  packages   -> $PKG_DIR/<name>/<name>
+  scripts    -> $BIN_DIR/scripts/<name>
+  tools      -> $TOOLS_DIR/<name>.sh or <name>.py   
+
+Hidden files/dirs (.*) are ignored in all listings.
+
+
+EOF
+}
+
+
+run_item() {
+  local t="$1"; shift || true
+  local name="${1:-}"; [[ -n "${name}" ]] && shift || true
+
+  case "$t" in 
+    modules)
+      local entry="$MOD_DIR/$name.sh"
+      [[ -x "$entry" ]] || { echo "mapi: module not found/executable: $entry" >&2; exit 4; }
+
+      local meta; meta="$(find_module_yaml "$name" || true)"
+      [[ -n "${meta:-}" && -f "$meta" ]] || { echo "[error] Missing metadata YAML for module '$name'." >&2; exit 2; }
+
+      local env_name
+      env_name="$(get_env_name_from_yaml "$meta")"
+      [[ -n "$env_name" ]] || env_name="$name"   # fallback to module name by convention
+      
+      local prefix="$REPO_ROOT/envs/$env_name"
+      [[ -d "$prefix" ]] || { echo "[error] Env prefix not found: $prefix. Run: tools/mapi_install.sh --only $env_name" >&2; exit 3; }
+      
+
+      export MAPI_REPO_ROOT="$REPO_ROOT"
+      export MAPI_MODULE_YAML="$meta"
+      # Run entry within the env prefix
+      exec conda run -p "$prefix" bash "$entry" "$@"
+      ;;
+
+    pipelines)
+      local entry="$PIPE_DIR/$name.sh"
+      [[ -x "$entry" ]] || { echo "mapi: pipeline not found/executable: $entry" >&2; exit 4; }
+
+      local meta; meta="$(find_pipeline_yaml "$name" || true)"
+      [[ -n "${meta:-}" && -f "$meta" ]] || { echo "[error] Missing metadata YAML for pipeline '$name'." >&2; exit 2; }
+
+      local env_name
+      env_name="$(get_env_name_from_yaml "$meta")"
+      [[ -n "$env_name" ]] || env_name="$name"   # fallback to module name by convention
+      
+      local prefix="$REPO_ROOT/envs/$env_name"
+      [[ -d "$prefix" ]] || { echo "[error] Env prefix not found: $prefix. Run: tools/mapi_install.sh --only $env_name" >&2; exit 3; }
+
+      export MAPI_REPO_ROOT="$REPO_ROOT"
+      export MAPI_PIPELINE_YAML="$meta"
+      exec conda run -p "$prefix" bash "$entry" "$@"
+      ;;
+
+    packages)
+      local entry="$PKG_DIR/$name/$name"
+      [[ -x "$entry" ]] || { echo "mapi: package entry not found or not executable: $entry" >&2; exit 4; }
+      exec "$entry" "$@"
+      ;;
+
+    scripts)
+      local entry="$BIN_DIR/scripts/$name"
+      [[ -x "$entry" ]] || { echo "mapi: script not found or not executable: $entry" >&2; exit 4; }
+      exec "$entry" "$@"
+      ;;
+
+    tools)  # NEW: run tools/<name>.sh or tools/<name>.py (non-hidden)
+      local sh="$TOOLS_DIR/$name.sh"
+      local py="$TOOLS_DIR/$name.py"
+      if [[ -f "$sh" && "$(basename "$sh")" != .* ]]; then
+        exec bash "$sh" "$@"
+      elif [[ -f "$py" && "$(basename "$py")" != .* ]]; then
+        exec python3 "$py" "$@"
+      else
+        echo "mapi: tool not found: $name (looked for $sh or $py)" >&2
+        exit 4
+      fi
+      ;;
+
+    *)
+      echo "unknown type: $t" >&2; exit 2
+      ;;
   esac
 }
+
+# -------------------- Main --------------------
+if [[ "${1:-}" == "--help" || $# -eq 0 ]]; then
+  usage
+  echo
+  echo "Discovered (hidden entries suppressed):"
+  echo "  modules  :";   list_items modules   | sed 's/^/    - /' || true
+  echo "  pipelines:";   list_items pipelines | sed 's/^/    - /' || true
+  echo "  packages :";   list_items packages  | sed 's/^/    - /' || true
+  echo "  scripts  :";   list_items scripts   | sed 's/^/    - /' || true
+  echo "  tools    :";   list_items tools     | sed 's/^/    - /' || true
+  exit 0
+fi
+
+t="$1"; shift || true
+if [[ $# -eq 0 ]]; then
+  # Type-only: list
+  list_items "$t"
+  exit 0
+else
+  run_item "$t" "$@"
+fi

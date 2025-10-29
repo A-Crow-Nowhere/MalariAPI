@@ -1,27 +1,30 @@
-# MAPI module YAML template (validator-friendly)
-# Recommended final location: bin/modules/yaml/<name>.yml
-name: __MODULE_NAME__
-version: 0.1
+# THIS IS JUST A TEMPLATE, REPLACE/ADD ALL ITEMS THAT 
+# ARE RELEVANT TO YOUR MODULE
 
- env:
-   conda: ~/MalariAPI/envs/yaml/template.yml   # ← uncomment when you have a real env file
-# (Leaving env.conda unset gives W121 instead of E122 while templating.)
 
+# ===== Module metadata =====
+name: module-example
+entry: module-example.sh
+env_name: module-example
+description: "module is a module."
+
+# ===== Environment spec =====
+env:
+  channels: [conda-forge, bioconda, defaults]
+  dependencies:
+    - python >=3.10
+    - pysam
+    - samtools
+
+# ===== Interface contract =====
 inputs:
-  - name: in1
-    flag: --in
+  - id: bam
     required: true
-  - name: in2
-    flag: --in2
-    required: false
+    flags: ["--in","--in1","-1"]
+    expects_ext: ["something","somethingelse"] # bam, txt, sam, bed, whatever.
 
 outputs:
-  - name: outdir
-    flag: --out
-    required: true
-
-about:
-  summary: "Template for a single-step module."
-  description: |
-    Copy this file to bin/modules/yaml/<name>.yml and set 'env.conda' to a
-    real file under envs/yaml/<env-name>.yml. Flags should match your wrapper.
+  out_dir_template: "{sample_prefix}_mapi-out"
+  products:
+    - tag: "mod-ex"         # must match DEFAULT_TAG in the script
+      exts: ["something","somethingelse"] # bam, txt, sam, bed, whatever.

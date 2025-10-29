@@ -24,14 +24,6 @@ if [[ "${1-}" == "-h" || "${1-}" == "--help" ]]; then
   usage; exit 0
 fi
 
-# ---------------- Enforce MAPI miniconda (validator-friendly) ----------------
-# The FIRST line below MUST remain exactly as shown to satisfy E105.
-# shellcheck disable=SC1090
-source "$(dirname "$0")/../_mapi_conda_lock.sh" \
-  || source "$(dirname "$0")/../bin/_mapi_conda_lock.sh" \
-  || source "$(dirname "$0")/../._mapi_conda_lock.sh" \
-  || source "$(dirname "$0")/../bin/._mapi_conda_lock.sh" \
-  || { echo "[ERROR] Could not source _mapi_conda_lock(.sh) from parent or bin/." >&2; exit 3; }
 
 # ----------------------- Repo root & metadata discovery ----------------------
 REPO_ROOT="${MAPI_REPO_ROOT:-"$(cd "$(dirname "$0")/../.." 2>/dev/null || pwd)"}"
