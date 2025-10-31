@@ -8,7 +8,7 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
    3. [Beginner user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/user.md)
    ### Set up advanced MAPI
    4. [Contributer user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/contributer.md)
-   5. [Set up job subisison and sycing to a high performance computing (HPC) cluster](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/HPC_guide.md)   
+   5. [Set up job subisison and sycing to a high performance computing (HPC) cluster](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/HPC_Guide.md)   
    6. [Creating modules and pipelines](docs/wrapping_tools.md)
    ### Helpful scripts
    7. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
