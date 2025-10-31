@@ -1,6 +1,6 @@
 # MalariAPI HPC Integration
 
-This document explains how to set up, install, and use the **MalariAPI HPC module** — a fully integrated extension that allows users to **submit, monitor, and retrieve jobs from remote computing clusters (HPCs)** such as UVA Rivanna or other institutional clusters.
+This document explains how to set up, install, and use the **MalariAPI HPC module** — a fully integrated extension that allows users to **submit, monitor, and retrieve jobs from remote computing clusters (HPCs)** such as slurm/sbatch clusters.
 
 ---
 
@@ -53,19 +53,31 @@ When you run:
 ```
 
 it will:
+1. **Create or update** your configuration file `tools/hpc_config.json`:
+   ```
+   {
+     "default_hpc": "<your-cluster-name>",
+     "clusters": {
+       "myHPC": {
+         "host": "<your-cluster-name>", # like; IDg@login.hpc.edu
+         "home_root": "$HOME/MalariAPI",
+         "scratch_root": "/scratch/$USER/MalariAPI"
+       }
+     }
+   }
 
-1. **Create or update** your configuration file `tools/hpc_config.json`.
-2. **Generate an SSH key** if you don’t already have one.
-3. **Add your key to the remote cluster** (`ssh-copy-id`).
-4. **Mirror your local MalariAPI repository** to:
+   ```
+3. **Generate an SSH key** if you don’t already have one.
+4. **Add your key to the remote cluster** (`ssh-copy-id`).
+5. **Mirror your local MalariAPI repository** to:
    - Remote **HOME** → `~/MalariAPI`
    - Remote **SCRATCH** → `/scratch/<user>/MalariAPI/scratch`
-5. **Mount both locations locally** (if `sshfs` is available):
+6. **Mount both locations locally** (if `sshfs` is available):
    ```
    ~/MalariAPI/_hpc_home/
    ~/MalariAPI/_hpc_scratch/
    ```
-6. **Create a command set** under `~/MalariAPI/tools/<hpc-name>/` that you can call through `mapi`.
+7. **Create a command set** under `~/MalariAPI/tools/<hpc-name>/` that you can call through `mapi`.
 
 ---
 
@@ -116,10 +128,12 @@ it will:
 | `push` | Manually copy data from local scratch → remote scratch. |
 | `sync` | Mirror everything per the specs (code + scratch inputs). |
 
+> 'sync' is one way: i.e. it will sync your local environment TO the HPC enviornment, not the other way around.
+
 ### `submit` Syntax
 
 ```bash
-mapi rivanna submit   --name testJob   --env-name fastp   --cmd 'fastp -i [local]/scratch/data/R1.fq.gz -I [local]/scratch/data/R2.fq.gz -o [scratch]/scratch/out/clean_R1.fq.gz'   --force-local
+mapi rivanna submit   --name testJob   --env-name toolenv   --cmd 'fastp -i [local]/scratch/data/R1.fq.gz -I [local]/scratch/data/R2.fq.gz -o [scratch]/scratch/out/clean_R1.fq.gz'   --force-local
 ```
 
 **Path tokens:**
@@ -137,9 +151,9 @@ mapi rivanna submit   --name testJob   --env-name fastp   --cmd 'fastp -i [local
 ## Example Workflow
 
 ```bash
-~/MalariAPI/tools/hpc_install rivanna njb8sg@login.hpc.virginia.edu
+~/MalariAPI/tools/hpc_install rivanna IDg@login.hpc.edu
 mapi rivanna sync
-mapi rivanna submit   --name demo --env-name fastp   --cmd 'echo "Running on $(hostname)" > [scratch]/scratch/out/test.txt'
+mapi rivanna submit   --name demo --env-name testenv   --cmd 'echo "Running on $(hostname)" > [scratch]/scratch/out/test.txt'
 mapi rivanna peak scratch/out
 mapi rivanna look --name demo --jobid 123456 --out
 mapi rivanna pull --from /scratch/$USER/MalariAPI/scratch/out --to ~/MalariAPI/scratch/out
@@ -154,7 +168,6 @@ mapi rivanna pull --from /scratch/$USER/MalariAPI/scratch/out --to ~/MalariAPI/s
 | `Missing: jq` | `jq` not installed locally | `sudo apt install jq` |
 | `rsync: mkdir ... failed` | Scratch directory missing | Re-run installer |
 | Password prompts after setup | Key not installed | Run `ssh-copy-id <user@cluster>` manually |
-| `sshfs` mount fails | Missing package | `sudo apt install sshfs` |
 | Job output missing locally | Output remains on HPC | Run `mapi <hpc> pull` |
 | Reinstall or rename HPC | Safe to rerun installer | No duplication issues |
 
