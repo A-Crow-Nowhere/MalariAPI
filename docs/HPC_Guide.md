@@ -137,6 +137,7 @@ mapi rivanna submit   --name testJob   --env-name toolenv   --cmd 'fastp -i [loc
 ```
 
 **Path tokens:**
+These can be placed at the beginning of any path, MAPI will automatically recognize the flag and look in the desired location.
 | Token | Meaning |
 |--------|----------|
 | `[local]` | Expands locally before submission. |
