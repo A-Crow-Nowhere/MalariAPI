@@ -1,10 +1,10 @@
-# 🚀 MalariAPI HPC Integration
+# MalariAPI HPC Integration
 
 This document explains how to set up, install, and use the **MalariAPI HPC module** — a fully integrated extension that allows users to **submit, monitor, and retrieve jobs from remote computing clusters (HPCs)** such as UVA Rivanna or other institutional clusters.
 
 ---
 
-## 📘 Overview
+## Overview
 
 MalariAPI can now interact directly with high-performance computing systems (HPCs) through a single command-line interface:
 
@@ -27,7 +27,7 @@ All HPC configuration, mirroring, and communication are handled through:
 
 ---
 
-## ⚙️ System Requirements
+## System Requirements
 
 Before installing, ensure you have the following tools on your **local system** (Ubuntu or WSL is fine):
 
@@ -38,11 +38,11 @@ Before installing, ensure you have the following tools on your **local system** 
 | `jq` | JSON parsing | `sudo apt install jq` or `mamba install -c conda-forge jq` |
 | `sshfs` | Mount remote directories locally | `sudo apt install sshfs` |
 
-> ⚠️ If you don’t have sudo access, all of these can be installed in your `base` Conda environment (`mamba install -c conda-forge jq rsync openssh`).
+> If you don’t have sudo access, all of these can be installed in your `base` Conda environment (`mamba install -c conda-forge jq rsync openssh`).
 
 ---
 
-## 🧰 What the Installer Does
+## What the Installer Does
 
 The installer (`tools/hpc_install`) automates **everything** about setting up your HPC connection.
 
@@ -69,7 +69,7 @@ it will:
 
 ---
 
-## 🧩 Folder Architecture
+## Folder Architecture
 
 ```text
 ~/MalariAPI/
@@ -87,7 +87,7 @@ it will:
 
 ---
 
-## 🧭 Understanding File Locations
+## Understanding File Locations
 
 | Space | Example Path | Description |
 |--------|---------------|-------------|
@@ -103,7 +103,7 @@ it will:
 
 ---
 
-## 🧮 Commands (via `mapi <hpc-name> <cmd>`)
+## Commands (via `mapi <hpc-name> <cmd>`)
 
 | Command | Description |
 |----------|-------------|
@@ -134,7 +134,7 @@ mapi rivanna submit   --name testJob   --env-name fastp   --cmd 'fastp -i [local
 
 ---
 
-## 🧱 Example Workflow
+## Example Workflow
 
 ```bash
 ~/MalariAPI/tools/hpc_install rivanna njb8sg@login.hpc.virginia.edu
@@ -147,7 +147,7 @@ mapi rivanna pull --from /scratch/$USER/MalariAPI/scratch/out --to ~/MalariAPI/s
 
 ---
 
-## 🧩 Troubleshooting
+## Troubleshooting
 
 | Issue | Explanation | Fix |
 |--------|--------------|-----|
@@ -160,7 +160,7 @@ mapi rivanna pull --from /scratch/$USER/MalariAPI/scratch/out --to ~/MalariAPI/s
 
 ---
 
-## 💡 Why Three Places?
+## Why Three Places?
 
 | Location | Purpose | Sync Direction |
 |-----------|----------|----------------|
@@ -170,7 +170,7 @@ mapi rivanna pull --from /scratch/$USER/MalariAPI/scratch/out --to ~/MalariAPI/s
 
 ---
 
-## 🧭 Navigation Cheat Sheet
+## Navigation Cheat Sheet
 
 | Purpose | Command |
 |----------|----------|
@@ -184,7 +184,7 @@ mapi rivanna pull --from /scratch/$USER/MalariAPI/scratch/out --to ~/MalariAPI/s
 
 ---
 
-## 🧠 Philosophy
+## Philosophy
 
 MalariAPI’s HPC extension is designed to be:
 - **Simple** – single setup step, single command interface.
@@ -195,7 +195,7 @@ MalariAPI’s HPC extension is designed to be:
 
 ---
 
-## ✅ Summary
+## Summary
 
 | Feature | Description |
 |----------|-------------|
