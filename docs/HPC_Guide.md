@@ -21,7 +21,6 @@ All HPC configuration, mirroring, and communication are handled through:
 ├── hpc_install            ← first-time installer
 ├── hpc_lib                ← shared helper library
 ├── hpc_templates/         ← command templates copied per HPC
-├── <hpc-name>/            ← generated command set for that HPC
 └── hpc_config.json        ← your cluster configuration file
 ```
 
@@ -90,10 +89,7 @@ it will:
 │   ├── hpc_install
 │   ├── hpc_lib
 │   ├── hpc_config.json
-│   ├── hpc_templates/
 │   ├── <hpc-name>/
-│   ├── _hpc_home/
-│   └── _hpc_scratch/
 └── scratch/
 ```
 
