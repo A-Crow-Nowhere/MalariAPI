@@ -1,42 +1,201 @@
 #!/usr/bin/env bash
-# MAPI one-shot installer (layout-aware)
-# - Pulls repo (git if available; else GitHub auto-tarball)
-# - Ensures bin/mapi + all bin/**/*.sh are executable
+# MAPI one-shot installer (layout-aware + git-aware)
+# - Clones/updates MalariAPI
+# - Configures git user.name / user.email (optional)
+# - Sets up origin (fork) + upstream (canonical) remotes
+# - Ensures bin/mapi + bin/**/*.sh are executable
 # - Adds MalariAPI bin paths to PATH (bash/zsh)
-# - Builds conda/mamba envs from tools/yaml/*.yml and pipeline/yaml/*.yml
-#   NOTE: envs/ holds actual runtime env dirs; we DO NOT copy YAMLs there.
+# - Ensures Miniconda exists and updates base env from envs/base.yml
+#
+# NOTE:
+#   - Does NOT build all module/pipeline envs; that’s done later via MAPI tools.
+
 set -euo pipefail
-
-# ======== CONFIG (override via env vars before running) ========
-REPO_OWNER="${REPO_OWNER:-A-Crow-Nowhere}"
-REPO_NAME="${REPO_NAME:-MalariAPI}"
-BRANCH="${BRANCH:-main}"
-ROOT="${ROOT:-$HOME/MalariAPI}"
-
-# Lock a specific Miniconda if you want (e.g., /home/you/tools/miniconda3)
-MINICONDA_HOME="${MINICONDA_HOME:-}"
-# ==============================================================
 
 say(){ printf '%s\n' "$*" >&2; }
 have(){ command -v "$1" >/dev/null 2>&1; }
 
-# Safer dir sync helper (rsync if present)
-sync_dir() {
-  local src="$1" dst="$2"
-  mkdir -p "$dst"
-  if command -v rsync >/dev/null 2>&1; then
-    rsync -a --delete "$src"/ "$dst"/
-  else
-    rm -rf "$dst"/*
-    cp -a "$src"/. "$dst"/
-  fi
+# ======== DEFAULT CONFIG (overridable via env or flags) ========
+REPO_OWNER="${REPO_OWNER:-A-Crow-Nowhere}"   # where we actually clone from
+UPSTREAM_OWNER="${UPSTREAM_OWNER:-A-Crow-Nowhere}"  # canonical / “yours”
+REPO_NAME="${REPO_NAME:-MalariAPI}"
+BRANCH="${BRANCH:-main}"
+ROOT="${ROOT:-$HOME/MalariAPI}"
+
+# If empty, we install Miniconda into "$ROOT/tools/miniconda3"
+MINICONDA_HOME="${MINICONDA_HOME:-}"
+
+# Git identity (local to this repo)
+GIT_USER_NAME="${GIT_USER_NAME:-}"
+GIT_USER_EMAIL="${GIT_USER_EMAIL:-}"
+# ==============================================================
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [options]
+
+Options:
+  --branch, -b <name>          Git branch to use (default: $BRANCH)
+  --root <path>                Install root (default: $ROOT)
+  --repo-owner <name>          GitHub owner to clone from (default: $REPO_OWNER)
+  --upstream-owner <name>      Canonical GitHub owner (default: $UPSTREAM_OWNER)
+  --repo-name <name>           GitHub repo name (default: $REPO_NAME)
+  --miniconda-home <path>      Existing Miniconda root to reuse
+  --git-name <name>            git config user.name for this repo
+  --git-email <email>          git config user.email for this repo
+  -h, --help                   Show this help and exit
+
+Typical contributor workflow:
+
+  # If they forked your repo to <their-username>/MalariAPI:
+  ./install_mapi.sh \\
+    --repo-owner <their-username> \\
+    --upstream-owner A-Crow-Nowhere \\
+    --branch main \\
+    --git-name "Their Name" \\
+    --git-email "their_email@example.com"
+
+EOF
 }
+
+# ----- Parse CLI args ---------------------------------------------------------
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --branch|-b)
+      BRANCH="$2"; shift 2 ;;
+    --root)
+      ROOT="$2"; shift 2 ;;
+    --repo-owner)
+      REPO_OWNER="$2"; shift 2 ;;
+    --upstream-owner)
+      UPSTREAM_OWNER="$2"; shift 2 ;;
+    --repo-name)
+      REPO_NAME="$2"; shift 2 ;;
+    --miniconda-home)
+      MINICONDA_HOME="$2"; shift 2 ;;
+    --git-name)
+      GIT_USER_NAME="$2"; shift 2 ;;
+    --git-email)
+      GIT_USER_EMAIL="$2"; shift 2 ;;
+    -h|--help)
+      usage
+      exit 0 ;;
+    *)
+      say "Unknown option: $1"
+      usage
+      exit 1 ;;
+  esac
+done
+
+if ! have git; then
+  say "!! git is not installed or not on PATH."
+  say "   Please install git and rerun this installer."
+  exit 1
+fi
+
+# Normalize ROOT
+ROOT="$(readlink -f "$ROOT" 2>/dev/null || python3 - <<PY
+import os,sys
+print(os.path.abspath(sys.argv[1]))
+PY
+"$ROOT")"
 
 add_path_line(){
   local rc="$1"
-  local line='export PATH="$HOME/MalariAPI/bin:$HOME/MalariAPI/bin/scripts:$PATH"'
+  local line="export PATH=\"$ROOT/bin:$ROOT/bin/scripts:\$PATH\""
   [[ -f "$rc" ]] || return 0
-  grep -Fq 'MalariAPI/bin' "$rc" || printf '\n# MalariAPI executables\n%s\n' "$line" >> "$rc"
+  grep -Fq "$ROOT/bin" "$rc" || {
+    printf '\n# MalariAPI executables\n%s\n' "$line" >> "$rc"
+  }
+}
+
+add_conda_init_line() {
+  local rc="$1"
+  [[ -f "$rc" ]] || return 0
+  [[ -n "$MINICONDA_HOME" ]] || return 0
+  local init="source \"$MINICONDA_HOME/etc/profile.d/conda.sh\""
+  grep -Fq "$MINICONDA_HOME/etc/profile.d/conda.sh" "$rc" || {
+    printf '\n# MalariAPI Miniconda init\n%s\n' "$init" >> "$rc"
+  }
+}
+
+configure_git_repo() {
+  (
+    cd "$ROOT"
+
+    # Local identity (does not touch global config)
+    if [[ -n "$GIT_USER_NAME" ]]; then
+      say "==> Setting git user.name to '$GIT_USER_NAME' (local to this repo)"
+      git config user.name "$GIT_USER_NAME"
+    fi
+    if [[ -n "$GIT_USER_EMAIL" ]]; then
+      say "==> Setting git user.email to '$GIT_USER_EMAIL' (local to this repo)"
+      git config user.email "$GIT_USER_EMAIL"
+    fi
+
+    # Set up upstream remote if this looks like a fork
+    # origin → REPO_OWNER, upstream → UPSTREAM_OWNER
+    if [[ "$REPO_OWNER" != "$UPSTREAM_OWNER" ]]; then
+      local upstream_url
+      upstream_url="git@github.com:${UPSTREAM_OWNER}/${REPO_NAME}.git"
+      if ! git remote get-url upstream >/dev/null 2>&1; then
+        say "==> Adding 'upstream' remote → $upstream_url"
+        git remote add upstream "$upstream_url"
+      fi
+    fi
+
+    say "==> Git remotes:"
+    git remote -v || true
+  )
+}
+
+ensure_miniconda() {
+  # Decide where Miniconda lives if not provided
+  if [[ -z "$MINICONDA_HOME" ]]; then
+    MINICONDA_HOME="$ROOT/tools/miniconda3"
+  fi
+
+  if [[ -x "$MINICONDA_HOME/bin/conda" ]]; then
+    say "==> Reusing existing Miniconda at $MINICONDA_HOME"
+  else
+    say "==> Installing Miniconda into $MINICONDA_HOME"
+    mkdir -p "$(dirname "$MINICONDA_HOME")"
+    local install_dir
+    install_dir="$(dirname "$MINICONDA_HOME")"
+    (
+      cd "$install_dir"
+      local INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
+      local URL="https://repo.anaconda.com/miniconda/$INSTALLER"
+
+      if have curl; then
+        curl -fsSLo "$INSTALLER" "$URL"
+      elif have wget; then
+        wget -O "$INSTALLER" "$URL"
+      else
+        say "!! Neither curl nor wget is available; cannot download Miniconda."
+        exit 1
+      fi
+
+      bash "$INSTALLER" -b -p "$MINICONDA_HOME"
+      rm -f "$INSTALLER"
+    )
+  fi
+
+  # Load conda into this shell
+  if [[ -f "$MINICONDA_HOME/etc/profile.d/conda.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "$MINICONDA_HOME/etc/profile.d/conda.sh"
+  else
+    say "!! Miniconda installed but etc/profile.d/conda.sh not found at $MINICONDA_HOME"
+  fi
+
+  # Persist conda init if Miniconda is under the MAPI tree
+  case "$MINICONDA_HOME" in
+    "$ROOT"/*)
+      add_conda_init_line "$HOME/.bashrc"
+      add_conda_init_line "$HOME/.zshrc"
+      ;;
+  esac
 }
 
 # --- 0) Prep tree --------------------------------------------------------------
@@ -45,107 +204,92 @@ mkdir -p "$ROOT"
 
 # --- 1) Acquire/refresh repo ---------------------------------------------------
 if [[ -d "$ROOT/.git" ]]; then
-  ( cd "$ROOT"
+  say "==> Existing git repo found; updating $BRANCH"
+  (
+    cd "$ROOT"
     git fetch origin "$BRANCH" || true
     git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
-    # ensure sparse mode & patterns are applied on existing clones
     git sparse-checkout init --no-cone || true
     git sparse-checkout set '/*' '!:**/docs/**' '!:**/[Rr][Ee][Aa][Dd][Mm][Ee]*'
     git pull --rebase --autostash origin "$BRANCH" || true
     git sparse-checkout reapply || true
   )
 else
+  say "==> Cloning repo $REPO_OWNER/$REPO_NAME (branch: $BRANCH)"
   rm -rf "$ROOT"
-  # sparse, partial clone (smaller & faster)
   git clone --filter=blob:none --sparse --branch "$BRANCH" \
     "git@github.com:${REPO_OWNER}/${REPO_NAME}.git" "$ROOT" 2>/dev/null \
   || git clone --filter=blob:none --sparse --branch "$BRANCH" \
     "https://github.com/${REPO_OWNER}/${REPO_NAME}.git" "$ROOT"
 
-  ( cd "$ROOT"
+  (
+    cd "$ROOT"
     git sparse-checkout init --no-cone
     git sparse-checkout set '/*' '!:**/docs/**' '!:**/[Rr][Ee][Aa][Dd][Mm][Ee]*'
   )
 fi
 
-# --- 2) Executables ------------------------------------------------------------
+# --- 2) Git config / remotes ---------------------------------------------------
+configure_git_repo
+
+# --- 3) Executables ------------------------------------------------------------
 if [[ -d "$ROOT/bin" ]]; then
   say "==> Marking executables in bin/ as +x"
   find "$ROOT/bin" -type f \( -name "mapi" -o -name "*.sh" \) -exec chmod +x {} \;
 fi
 
-# --- 3) PATH -------------------------------------------------------------------
+# --- 4) PATH -------------------------------------------------------------------
 say "==> Ensuring MalariAPI bin paths are on your PATH"
 add_path_line "$HOME/.bashrc"
 add_path_line "$HOME/.zshrc"
-export PATH="$HOME/MalariAPI/bin:$HOME/MalariAPI/bin/scripts:$PATH"
+export PATH="$ROOT/bin:$ROOT/bin/scripts:$PATH"
 
-# --- 4) Find YAML specs (NEW layout) -------------------------------------------
-# YAMLs now live here:
-YAML_DIRS=()
-[[ -d "$ROOT/tools/yaml" ]]    && YAML_DIRS+=("$ROOT/tools/yaml")
-[[ -d "$ROOT/pipeline/yaml" ]] && YAML_DIRS+=("$ROOT/pipeline/yaml")
+# --- 5) Miniconda / base env ---------------------------------------------------
+say "==> Ensuring Miniconda is available"
+ensure_miniconda
 
-if [[ "${#YAML_DIRS[@]}" -eq 0 ]]; then
-  say "!! No YAML directories found (expected tools/yaml and/or pipeline/yaml). Skipping env build."
-  exit 0
-fi
-
-# --- 5) Conda/Mamba boot -------------------------------------------------------
-# Use locked Miniconda if provided; else whatever conda in PATH.
-if [[ -n "$MINICONDA_HOME" ]]; then
-  # shellcheck disable=SC1090
-  source "$MINICONDA_HOME/etc/profile.d/conda.sh" 2>/dev/null || true
-fi
-
-# If conda is available, source its profile to ensure 'conda env' works in non-login shells
-if have conda; then
-  # shellcheck disable=SC1090
-  source "$(conda info --base 2>/dev/null)/etc/profile.d/conda.sh" 2>/dev/null || true
-fi
-
-if ! have conda && ! have mamba; then
-  cat <<'NOTE'
-!! No conda/mamba detected in PATH.
-   After installing Miniconda/Mambaforge, run this block to build envs:
-
-for y in "$HOME/MalariAPI/tools/yaml/"*.yml "$HOME/MalariAPI/tools/yaml/"*.yaml \
-         "$HOME/MalariAPI/pipeline/yaml/"*.yml "$HOME/MalariAPI/pipeline/yaml/"*.yaml; do
-  [[ -e "$y" ]] || continue
-  n="$(basename "${y%.*}")"
-  if conda env list | awk '{print $1}' | grep -qx "$n"; then
-    conda env update -n "$n" -f "$y" --prune
+if ! have conda; then
+  say "!! conda command is still not available after Miniconda setup."
+  say "   You may need to 'source ~/.bashrc' or restart your shell, then run:"
+  say "     conda env update -n base -f \"$ROOT/envs/base.yml\"  (if present)"
+else
+  BASE_YAML="$ROOT/envs/base.yml"
+  if [[ -f "$BASE_YAML" ]]; then
+    say "==> Updating base environment from $BASE_YAML"
+    conda env update -n base -f "$BASE_YAML" --prune
   else
-    conda env create -n "$n" -f "$y"
+    say "==> No base.yml found at $BASE_YAML; skipping base env update."
   fi
-done
-NOTE
-  exit 0
 fi
 
-CMD="conda"; have mamba && CMD="mamba"
+# --- 6) Post-install guidance --------------------------------------------------
+cat <<'NOTE'
 
-# --- 6) Create/Update envs directly from YAMLs ---------------------------------
-say "==> Creating/updating Conda envs from tools/yaml and pipeline/yaml"
-shopt -s nullglob
-for dir in "${YAML_DIRS[@]}"; do
-  for y in "$dir"/*.yml "$dir"/*.yaml; do
-    [[ -e "$y" ]] || continue
-    name="$(basename "${y%.*}")"
-    if conda env list | awk '{print $1}' | grep -qx "$name"; then
-      say "    updating env: $name"
-      "$CMD" env update -n "$name" -f "$y" --prune
-    else
-      say "    creating env: $name"
-      "$CMD" env create -n "$name" -f "$y"
-    fi
-  done
-done
-shopt -u nullglob
+==> Initial MAPI install complete.
 
-# --- 7) Verify -----------------------------------------------------------------
-say "==> Verifying commands on PATH"
-command -v mapi >/dev/null && say "    OK: mapi at $(command -v mapi)" || say "    MISSING: mapi"
-command -v bed_to_vcf.sh >/dev/null && say "    OK: bed_to_vcf.sh on PATH" || say "    MISSING: bed_to_vcf.sh"
+Git:
+  - Local user.name/user.email have been configured for this repo if provided.
+  - If you cloned your own fork (REPO_OWNER != UPSTREAM_OWNER),
+    an 'upstream' remote pointing at the canonical MalariAPI repo was added.
 
-say "==> Done. Open a new shell or 'source ~/.bashrc' / 'source ~/.zshrc' for PATH persistence."
+Conda:
+  - Miniconda has been installed/reused.
+  - The base environment was updated from envs/base.yml if present.
+
+Next steps:
+  - Open a new shell or run:
+        source ~/.bashrc    # or ~/.zshrc
+  - Create a feature branch and start hacking, e.g.:
+        cd "$HOME/MalariAPI"
+        git checkout -b feature/my_first_module
+
+  - When ready, commit and push:
+        git add -A
+        git commit -m "Add my first MAPI module"
+        git push -u origin feature/my_first_module
+
+  - Then open a Pull Request on GitHub targeting the canonical main branch.
+
+NOTE
+
+say "==> Done. Remember to source your shell rc for PATH + conda persistence."
