@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MAPI_ROOT="$HOME/MalariAPI"
+CFG="$MAPI_ROOT/tools/hpc_config.json"
+
+############################################################
+# Basic dependency check
+############################################################
+need_jq(){ command -v jq >/dev/null 2>&1 || { echo "Missing: jq" >&2; exit 3; }; }
+
+############################################################
+# load_hpc <hpc-name>
+############################################################
+load_hpc() {
+  HPC="${1:?HPC name required}"
+  need_jq
+
+  HOST="$(jq -r --arg h "$HPC" '.clusters[$h].host // empty' "$CFG")"
+  REMOTE_MAPI_HOME="$(jq -r --arg h "$HPC" '.clusters[$h].home_root // empty' "$CFG")"
+  REMOTE_SCRATCH="$(jq -r --arg h "$HPC" '.clusters[$h].scratch_root // empty' "$CFG")"
+  HPC_PARTITION="$(jq -r --arg h "$HPC" '.clusters[$h].partition // empty' "$CFG")"
+  HPC_ALLOCATION="$(jq -r --arg h "$HPC" '.clusters[$h].allocation // empty' "$CFG")"
+
+  if [[ -z "$HOST" || -z "$REMOTE_MAPI_HOME" || -z "$REMOTE_SCRATCH" ]]; then
+    echo "HPC '$HPC' not fully configured in $CFG" >&2
+    exit 2
+  fi
+
+  export HOST REMOTE_MAPI_HOME REMOTE_SCRATCH HPC_PARTITION HPC_ALLOCATION
+}
+
+############################################################
+# Auto SSH: detect whether remote prints noise (conda.sh, etc.)
+############################################################
+__mapi_detect_ssh_mode() {
+  local host="$1"
+  local cache_dir="$HOME/.malariapi"
+  mkdir -p "$cache_dir"
+  local cache_file="$cache_dir/ssh_mode_${host//[^A-Za-z0-9_.-]/_}"
+
+  if [[ -f "$cache_file" ]]; then
+    cat "$cache_file"
+    return 0
+  fi
+
+  local err
+  err="$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" true 2>&1 >/dev/null || true)"
+
+  if [[ -z "$err" ]]; then
+    echo "clean" > "$cache_file"
+    echo "clean"
+  else
+    echo "noisy" > "$cache_file"
+    echo "noisy"
+  fi
+}
+
+############################################################
+# ensure_key_login with caching (5 min TTL)
+############################################################
+ensure_key_login() {
+  if [[ "${MAPI_HPC_SKIP_LOGIN_CHECK:-0}" == "1" ]]; then
+    return 0
+  fi
+
+  local host="${HOST:?HOST not set; call load_hpc first}"
+
+  local cache_dir="$HOME/.malariapi"
+  mkdir -p "$cache_dir"
+  local cache_file="$cache_dir/ssh_key_ok_${host//[^A-Za-z0-9_.-]/_}"
+  local ttl=300
+
+  if [[ -f "$cache_file" ]]; then
+    local now last
+    now=$(date +%s)
+    last=$(cat "$cache_file" 2>/dev/null || echo 0)
+    if [[ "$last" =~ ^[0-9]+$ ]] && (( now - last < ttl )); then
+      return 0
+    fi
+  fi
+
+  if ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" true 2>/dev/null; then
+    date +%s > "$cache_file"
+    return 0
+  else
+    echo "Key-based login to '$host' not available. Run hpc_install first." >&2
+    exit 3
+  fi
+}
+
+############################################################
+# Main SSH wrappers (auto clean/noisy)
+############################################################
+hpc_ssh() {
+  local host="${HOST:?HOST not set; call load_hpc first}"
+  local mode="$(__mapi_detect_ssh_mode "$host")"
+
+  if [[ "$mode" == "clean" ]]; then
+    ssh \
+      -o BatchMode=yes \
+      -o ControlMaster=auto \
+      -o ControlPersist=600 \
+      -o ControlPath="$HOME/.ssh/cm-%r@%h:%p" \
+      "$host" "$@"
+  else
+    ssh \
+      -o BatchMode=yes \
+      -o ConnectTimeout=8 \
+      "$host" "$@" 2>/dev/null
+  fi
+}
+
+hpc_ssh_sh() {
+  local host="${HOST:?HOST not set; call load_hpc first}"
+  local mode="$(__mapi_detect_ssh_mode "$host")"
+
+  if [[ "$mode" == "clean" ]]; then
+    ssh \
+      -o BatchMode=yes \
+      -o ControlMaster=auto \
+      -o ControlPersist=600 \
+      -o ControlPath="$HOME/.ssh/cm-%r@%h:%p" \
+      "$host" bash --noprofile --norc "$@"
+  else
+    ssh \
+      -o BatchMode=yes \
+      -o ConnectTimeout=8 \
+      "$host" bash --noprofile --norc "$@" 2>/dev/null
+  fi
+}
+
+############################################################
+# Token rewriting: [local], [home], [scratch]
+############################################################
+rewrite_tokens() {
+  local s="$*"
+
+  local lhome="${MAPI_ROOT:-$HOME/MalariAPI}"
+  local rhome="${REMOTE_MAPI_HOME:-}"
+  local rscratch_root="${REMOTE_MAPI_SCRATCH:-${REMOTE_SCRATCH:-}}"
+
+  if [[ -z "$rhome" || -z "$rscratch_root" ]]; then
+    echo "rewrite_tokens: REMOTE_MAPI_HOME or REMOTE_MAPI_SCRATCH not set." >&2
+    echo "Hint: source \$MAPI_ROOT/bin/mapi.env." >&2
+    return 2
+  fi
+
+  s="${s//\[local\]/$lhome}"
+  s="${s//\[home\]/$rhome}"
+  s="${s//\[scratch\]/$rscratch_root/scratch}"
+
+  printf '%s\n' "$s"
+}
+
+############################################################
+# remote_submit(): forwards to remote submit tool cleanly
+############################################################
+remote_submit() {
+  local remote_cmd="$1"; shift
+
+  local fwd=() a
+  for a in "$@"; do fwd+=("$(printf '%q' "$a")"); done
+
+  hpc_ssh_sh -s <<RCMD
+set -euo pipefail
+[[ "\${MAPI_DEBUG:-0}" == "1" ]] && set -x
+
+U=\$(id -un)
+mkdir -p "/scratch/\$U/mapi_logs"
+cd "\$HOME/MalariAPI"
+
+REM_SUBMIT="\$HOME/MalariAPI/tools/$HPC/submit"
+if [[ ! -x "\$REM_SUBMIT" ]]; then
+  echo "ERROR: Remote submit not found: \$REM_SUBMIT" >&2
+  exit 127
+fi
+
+echo "[DEBUG] exec: \$REM_SUBMIT --cmd $(printf '%q' "$remote_cmd") ${fwd[*]}"
+
+MAPI_REMOTE_SUBMIT=1 \
+  exec "\$REM_SUBMIT" --cmd $(printf '%q' "$remote_cmd") ${fwd[*]} 2>&1
+RCMD
+}
+
+############################################################
+# tail_log_path: used by mapi rivanna status/logs
+############################################################
+tail_log_path() {
+  local name="$1" jid="$2" which="$3"
+  hpc_ssh_sh -s <<RCMD
+printf "/scratch/\$USER/mapi_logs/${name}-${jid}.${which}\n"
+RCMD
+}
+
+############################################################
+# Quiet SSH base opts
+############################################################
+_mapi_ssh_base_opts=(-o BatchMode=yes -o ConnectTimeout=8)
+
+_q() { printf '%q' "$1"; }
+
+############################################################
+# Remote mkdir
+############################################################
+_mapi_remote_mkdirp() {
+  local rdir="$1"
+  [[ "${MAPI_DEBUG:-0}" == "1" ]] && echo "[mapi] remote mkdir -p -- $rdir"
+
+  hpc_ssh_script "$rdir" <<'BASH'
+set -euo pipefail
+D="$1"
+mkdir -p -- "$D"
+BASH
+}
+
+############################################################
+# File transfer: rsync with scp fallback
+############################################################
+_mapi_rsync_send() {
+  local src="$1" dst="$2" is_dir="${3:-0}"
+  local RSYNC_SSH="ssh -o BatchMode=yes -o ConnectTimeout=8"
+
+  local rpath="${dst#*:}"
+  rpath="${rpath%/}"
+  local rparent="${rpath%/*}"
+
+  if [[ -n "$rparent" && "$rparent" != "$rpath" ]]; then
+    _mapi_remote_mkdirp "$rparent"
+  fi
+
+  [[ "${MAPI_DEBUG:-0}" == "1" ]] && echo "[mapi] PUSH src='$src' -> dst='$dst' (is_dir=$is_dir)"
+
+  if [[ "${MAPI_FORCE_SCP:-0}" == "1" ]]; then
+    if [[ $is_dir -eq 1 ]]; then
+      scp -r -o BatchMode=yes -o ConnectTimeout=8 -- "$src/" "$dst/" || return 1
+    else
+      scp    -o BatchMode=yes -o ConnectTimeout=8 -- "$src" "$dst" || return 1
+    fi
+  else
+    if [[ $is_dir -eq 1 ]]; then
+      if rsync -az --delete --protect-args -e "$RSYNC_SSH" "$src/" "$dst/"; then
+        :
+      else
+        echo "[rsync→scp] dir send fallback" >&2
+        scp -r -o BatchMode=yes -o ConnectTimeout=8 -- "$src/" "$dst/" || return 1
+      fi
+    else
+      if rsync -az --protect-args -e "$RSYNC_SSH" "$src" "$dst"; then
+        :
+      else
+        echo "[rsync→scp] file send fallback" >&2
+        scp -o BatchMode=yes -o ConnectTimeout=8 -- "$src" "$dst" || return 1
+      fi
+    fi
+  fi
+
+  if [[ "${MAPI_DEBUG:-0}" == "1" ]]; then
+    local verify="$rpath"
+    if [[ $is_dir -eq 1 ]]; then
+      hpc_ssh_sh -c "ls -ld $(_q "$verify") ; ls -l $(_q "$verify") | sed -n '1,10p'"
+    else
+      hpc_ssh_sh -c "ls -l $(_q "$verify")"
+    fi
+  fi
+}
+
+############################################################
+# Recv helpers
+############################################################
+_mapi_recv_into_dir() {
+  local src="$1" dst="$2"
+  local RSYNC_SSH="ssh -o BatchMode=yes -o ConnectTimeout=8"
+
+  [[ "${MAPI_DEBUG:-0}" == "1" ]] && echo "[mapi] PULL dir src='$src' -> dst='$dst/'"
+  mkdir -p "$dst"
+
+  if [[ "${MAPI_FORCE_SCP:-0}" == "1" ]]; then
+    scp -r -o BatchMode=yes -o ConnectTimeout=8 -- "$src" "$dst/" || return 1
+  else
+    rsync -az --protect-args -e "$RSYNC_SSH" "$src" "$dst/" \
+      || { echo "[rsync→scp] recv(dir) fallback" >&2; scp -r -o BatchMode=yes -o ConnectTimeout=8 -- "$src" "$dst/" || return 1; }
+  fi
+}
+
+_mapi_recv_file_exact() {
+  local src="$1" dst="$2"
+  local RSYNC_SSH="ssh -o BatchMode=yes -o ConnectTimeout=8"
+
+  [[ "${MAPI_DEBUG:-0}" == "1" ]] && echo "[mapi] PULL file src='$src' -> dst='$dst'"
+
+  mkdir -p "$(dirname "$dst")"
+
+  if [[ "${MAPI_FORCE_SCP:-0}" == "1" ]]; then
+    scp -o BatchMode=yes -o ConnectTimeout=8 -- "$src" "$dst" || return 1
+  else
+    rsync -az --protect-args -e "$RSYNC_SSH" "$src" "$dst" \
+      || { echo "[rsync→scp] recv(file) fallback" >&2; scp -o BatchMode=yes -o ConnectTimeout=8 -- "$src" "$dst" || return 1; }
+  fi
+}
+
+############################################################
+# Run small script with arguments on remote (stdin)
+############################################################
+hpc_ssh_script() {
+  if [[ "${MAPI_DEBUG:-0}" == "1" ]]; then
+    ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" bash --noprofile --norc -s -- "$@"
+  else
+    ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" bash --noprofile --norc -s -- "$@" 2>/dev/null
+  fi
+}

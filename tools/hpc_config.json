@@ -1,0 +1,12 @@
+{
+  "default_hpc": "rivanna",
+  "clusters": {
+    "rivanna": {
+      "host": "njb8sg@login.hpc.virginia.edu",
+      "home_root": "/home/njb8sg/MalariAPI",
+      "scratch_root": "/scratch/njb8sg/MalariAPI",
+      "partition": "standard",
+      "allocation": "gulermalarialab"
+    }
+  }
+}
