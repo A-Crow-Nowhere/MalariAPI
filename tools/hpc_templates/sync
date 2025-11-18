@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# mapi <hpc> sync
+# Default: push home → remote (non-destructive), and push scratch inputs → remote.
+# Extra:
+#   --up       : local → remote (default)
+#   --down     : remote → local (home only)
+#   --mirror   : add rsync --delete (dangerous; will remove extras on the target)
+set -euo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
+
+# Core HPC helpers
+source "$HOME/MalariAPI/tools/hpc_lib"
+
+# Allow override, default to directory name (e.g. rivanna)
+HPC="${MAPI_HPC:-$(basename "$(dirname "$0")")}"
+load_hpc "$HPC"
+ensure_key_login
+
+# Local paths
+MAPI_ROOT="${MAPI_ROOT:-$HOME/MalariAPI}"
+LOCAL_SCRATCH="${MAPI_SCRATCH:-$MAPI_ROOT/scratch}"
+
+# SSH_OPTS and HOST come from load_hpc; turn them into a single rsync transport string
+RSYNC_SSH="ssh ${SSH_OPTS[*]:-}"
+
+# Optional excludes file
+SYNC_EXCLUDES="$MAPI_ROOT/tools/.sync_excludes.txt"
+
+MODE="up"     # up = local → remote, down = remote → local (home only)
+MIRROR=0      # 1 = include --delete
+
+usage() {
+  cat <<EOF
+Usage: mapi $HPC sync [--up|--down] [--mirror]
+
+  --up       Sync local → remote (default)
+  --down     Sync remote → local (home only)
+  --mirror   Use rsync --delete (mirror; will remove extras on the target)
+
+Notes:
+  * Home sync respects tools/.sync_excludes.txt if present.
+  * Scratch is only synced when MODE=up, and never with --delete.
+EOF
+}
+
+# Parse CLI flags
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --up) MODE="up"; shift;;
+    --down) MODE="down"; shift;;
+    --mirror) MIRROR=1; shift;;
+    -h|--help) usage; exit 0;;
+    *)
+      echo "[sync] Unknown option: $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+echo "[sync] starting (HPC=$HPC, HOST=$HOST, MODE=$MODE, MIRROR=$MIRROR)"
+echo "[sync] local MAPI_ROOT         = $MAPI_ROOT"
+echo "[sync] remote REMOTE_MAPI_HOME = $REMOTE_MAPI_HOME"
+echo "[sync] local LOCAL_SCRATCH     = $LOCAL_SCRATCH"
+echo "[sync] remote REMOTE_SCRATCH   = $REMOTE_SCRATCH"
+
+# ----------------------------------------------------------------------
+# Ensure remote dirs exist
+# ----------------------------------------------------------------------
+echo "[sync] ensuring remote directories exist on $HOST"
+ssh ${SSH_OPTS[@]:-} "$HOST" "mkdir -p '$REMOTE_MAPI_HOME' '$REMOTE_SCRATCH/scratch' '$REMOTE_SCRATCH/mapi_logs'"
+
+# ----------------------------------------------------------------------
+# Build rsync options for HOME
+# ----------------------------------------------------------------------
+HOME_OPTS=(
+  -avz
+  --exclude 'scratch/'
+  --exclude '.git/'
+  --exclude 'tools/miniconda3/'
+)
+
+# Add --delete only if MIRROR is requested
+if [[ "$MIRROR" -eq 1 ]]; then
+  HOME_OPTS+=( --delete )
+fi
+
+if [[ -f "$SYNC_EXCLUDES" ]]; then
+  echo "[home] using excludes from: $SYNC_EXCLUDES"
+  HOME_OPTS+=( --exclude-from="$SYNC_EXCLUDES" )
+fi
+
+# ----------------------------------------------------------------------
+# 1) Sync HOME (direction depends on MODE)
+# ----------------------------------------------------------------------
+case "$MODE" in
+  up)
+    echo "[home] rsync local -> $HOST:$REMOTE_MAPI_HOME/"
+    rsync "${HOME_OPTS[@]}" \
+          -e "$RSYNC_SSH" \
+          "$MAPI_ROOT/" "$HOST:$REMOTE_MAPI_HOME/"
+    ;;
+  down)
+    echo "[home] rsync $HOST:$REMOTE_MAPI_HOME/ -> local"
+    mkdir -p "$MAPI_ROOT"
+    rsync "${HOME_OPTS[@]}" \
+          -e "$RSYNC_SSH" \
+          "$HOST:$REMOTE_MAPI_HOME/" "$MAPI_ROOT/"
+    ;;
+  *)
+    echo "[sync] Internal error: unknown MODE '$MODE'" >&2
+    exit 1
+    ;;
+esac
+
+# ----------------------------------------------------------------------
+# 2) Sync local scratch inputs → remote scratch (exclude out/ and tmp/)
+#    Only when pushing (MODE=up). No --delete here.
+# ----------------------------------------------------------------------
+if [[ "$MODE" == "up" ]]; then
+  echo "[scratch] rsync local -> $HOST:$REMOTE_SCRATCH/scratch/"
+
+  mkdir -p "$LOCAL_SCRATCH"
+
+  SCRATCH_OPTS=(
+    -avz
+    --exclude 'out/'
+    --exclude 'tmp/'
+  )
+
+  rsync "${SCRATCH_OPTS[@]}" \
+        -e "$RSYNC_SSH" \
+        "$LOCAL_SCRATCH/" "$HOST:$REMOTE_SCRATCH/scratch/"
+fi
+
+echo "[sync] Done."

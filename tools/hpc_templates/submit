@@ -1,0 +1,362 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
+
+# ============================================================
+# MAPI Rivanna Submit (local + remote modes)
+#
+# Local mode:
+#   mapi rivanna submit \
+#     --name NAME \
+#     --env-name ENV \
+#     --out [scratch]/job.dir \
+#     --time 12:00:00 \
+#     --cpus 4 \
+#     --gpus 1 \
+#     --gpu-type V100 \
+#     --partition gpu \
+#     --cmd "python train.py --epochs 10"
+#
+# Remote mode (MAPI_REMOTE_SUBMIT=1):
+#   Same script runs on Rivanna, builds sbatch script, and calls sbatch.
+# ============================================================
+
+# --- Bootstrap ---
+MAPI_ROOT_DEFAULT="$HOME/MalariAPI"
+
+# Try to load env (for remote host, partition, allocation, etc.)
+if      [ -f "$MAPI_ROOT_DEFAULT/bin/.mapi.env" ]; then
+  # shellcheck source=/dev/null
+  . "$MAPI_ROOT_DEFAULT/bin/.mapi.env"
+elif    [ -f "$MAPI_ROOT_DEFAULT/bin/mapi.env" ]; then  # back-compat
+  # shellcheck source=/dev/null
+  . "$MAPI_ROOT_DEFAULT/bin/mapi.env"
+fi
+
+# Force MAPI_ROOT to be host-agnostic on this machine
+MAPI_ROOT="$MAPI_ROOT_DEFAULT"
+
+# shellcheck source=/dev/null
+source "$MAPI_ROOT/tools/hpc_lib"
+
+HPC="rivanna"
+
+JOB_NAME="mapi-job"
+ENV_NAME=""
+OUTDIR_REMOTE='[scratch]/mapi_logs'
+CMD=""
+FORCE_LOCAL=0
+
+# Slurm-related options (user-overridable)
+TIME_LIMIT=""         # e.g. 12:00:00
+CPUS_PER_TASK=1       # --cpus-per-task
+NODES=1               # --nodes
+MEM_PER_NODE=""       # --mem
+
+# GPU-related options (user-overridable)
+GPUS=""               # --gpus
+GPUS_PER_TASK=""      # --gpus-per-task
+GPU_TYPE=""           # used for --gres=gpu:TYPE:COUNT
+
+usage() {
+  cat <<'U'
+Usage:
+  mapi rivanna submit
+      --name NAME
+      --env-name ENV
+      --out REMOTE_DIR
+      --cmd "<string with [local]|[home]|[scratch] tokens>"
+      [--time HH:MM:SS]
+      [--cpus N]
+      [--nodes N]
+      [--mem MEM]
+      [--gpus N]
+      [--gpus-per-task N]
+      [--gpu-type TYPE]
+      [--partition PART]
+      [--allocation ALLOC]
+      [--force-local]
+
+Where:
+  --name NAME
+      Job name (appears in squeue/sacct; also used in log filenames).
+
+  --env-name ENV
+      Name of the MAPI Conda env under $MAPI_ROOT/envs/ to run in.
+      Example: --env-name default   →  $MAPI_ROOT/envs/default
+
+  --out REMOTE_DIR
+      Remote working/output directory. Can use tokens:
+        [scratch] → remote scratch root (e.g. /scratch/$USER/MalariAPI/scratch)
+        [home]    → REMOTE_MAPI_HOME (e.g. ~/MalariAPI on Rivanna)
+      Example: --out [scratch]/myjob.dir
+
+  --cmd "COMMAND"
+      The actual payload command. May also use [local]/[home]/[scratch] tokens.
+      The job script will:
+        1) mkdir -p REMOTE_DIR
+        2) cd REMOTE_DIR
+        3) run COMMAND inside the selected Conda env.
+
+  --time HH:MM:SS
+      Slurm walltime limit (e.g. 01:00:00, 12:00:00).
+      If omitted, the cluster's default time limit is used.
+
+  --cpus N
+      Number of CPUs per task (maps to --cpus-per-task). Default: 1.
+
+  --nodes N
+      Number of nodes. Default: 1.
+
+  --mem MEM
+      Memory per node (e.g. 8G, 32000). If omitted, Slurm's default is used.
+
+  --gpus N
+      Total GPUs per job (maps to --gpus=N). Often used with a GPU partition.
+
+  --gpus-per-task N
+      GPUs per task (maps to --gpus-per-task=N). If set, it takes precedence
+      over --gpus.
+
+  --gpu-type TYPE
+      GPU type/constraint. When set, this also adds:
+        #SBATCH --gres=gpu:TYPE:COUNT
+      where COUNT is taken from --gpus-per-task, or --gpus, or falls back to 1.
+      Example: --gpu-type V100  --gpus 2  →  --gres=gpu:V100:2
+
+  --partition PART
+      Slurm partition. Defaults to 'standard' (or the value in hpc_config.json).
+
+  --allocation ALLOC   (alias: --account)
+      Slurm account/allocation. Defaults to value in hpc_config.json
+      or a reasonable lab default.
+
+  --force-local
+      Skip remote submit; useful for debugging commands locally
+      (only makes sense if you're already on the HPC).
+
+Notes:
+  * On the LOCAL side, submit will:
+      - Run a non-destructive sync: tools/rivanna/sync --up
+      - Rewrite [local]/[home]/[scratch] tokens
+      - Forward to the REMOTE submit via SSH (remote_submit in hpc_lib).
+  * On the REMOTE side (MAPI_REMOTE_SUBMIT=1), this script:
+      - Writes an sbatch script under /scratch/$USER/mapi_logs
+      - Calls 'conda run -p "$MAPI_ROOT/envs/ENV_NAME" ...' directly via
+        $MAPI_ROOT/tools/miniconda3/bin/conda (no shell init).
+U
+}
+
+# ----------------- parse args -----------------
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --name)        JOB_NAME="$2"; shift 2;;
+    --env-name)    ENV_NAME="$2"; shift 2;;
+    --out)         OUTDIR_REMOTE="$2"; shift 2;;
+    --cmd)         CMD="$2"; shift 2;;
+    --force-local) FORCE_LOCAL=1; shift;;
+    --time)        TIME_LIMIT="$2"; shift 2;;
+    --cpus|--cpus-per-task) CPUS_PER_TASK="$2"; shift 2;;
+    --nodes)       NODES="$2"; shift 2;;
+    --mem)         MEM_PER_NODE="$2"; shift 2;;
+    --gpus)        GPUS="$2"; shift 2;;
+    --gpus-per-task) GPUS_PER_TASK="$2"; shift 2;;
+    --gpu-type)    GPU_TYPE="$2"; shift 2;;
+    --partition)   HPC_PARTITION="$2"; shift 2;;
+    --allocation|--account) HPC_ALLOCATION="$2"; shift 2;;
+    -h|--help)     usage; exit 0;;
+    *) echo "Unknown arg: $1" >&2; usage; exit 2;;
+  esac
+done
+
+: "${ENV_NAME:=default}"
+[[ -n "$CMD" ]] || { echo "ERROR: --cmd required" >&2; exit 2; }
+
+# ----------------- HPC init -----------------
+# LOCAL side: need load_hpc + ensure_key_login (uses jq)
+# REMOTE side (MAPI_REMOTE_SUBMIT=1): skip load_hpc, we don't need jq there.
+if [[ "${MAPI_REMOTE_SUBMIT:-0}" != "1" ]]; then
+  load_hpc "$HPC"          # HOST, REMOTE_MAPI_HOME, REMOTE_SCRATCH, HPC_PARTITION, HPC_ALLOCATION, ...
+  ensure_key_login
+fi
+
+# Fall back defaults if not set (both local & remote)
+HPC_PARTITION="${HPC_PARTITION:-standard}"
+HPC_ALLOCATION="${HPC_ALLOCATION:-gulermalarialab}"
+
+# ------------------------------------------------------------
+# submit_* SSH wrappers (used only on local if at all)
+# ------------------------------------------------------------
+submit_hpc_ssh() {
+  ssh "${_mapi_ssh_base_opts[@]}" "$HOST" "$@"
+}
+submit_hpc_ssh_sh() {
+  ssh "${_mapi_ssh_base_opts[@]}" "$HOST" bash --noprofile --norc "$@"
+}
+
+# ------------------------------------------------------------
+# Pre-submit sync wrapper (local side only)
+# ------------------------------------------------------------
+run_presubmit_sync() {
+  # Only sync on the *local* side
+  if [[ "${MAPI_REMOTE_SUBMIT:-0}" == "1" ]]; then
+    [[ "${MAPI_DEBUG:-0}" == "1" ]] && echo "[submit] remote submit detected; skipping pre-submit sync"
+    return 0
+  fi
+
+  if [[ "${MAPI_SKIP_PRESUBMIT_SYNC:-0}" == "1" ]]; then
+    [[ "${MAPI_DEBUG:-0}" == "1" ]] && echo "[submit] MAPI_SKIP_PRESUBMIT_SYNC=1; skipping pre-submit sync"
+    return 0
+  fi
+
+  if [[ "$FORCE_LOCAL" -eq 1 ]]; then
+    [[ "${MAPI_DEBUG:-0}" == "1" ]] && echo "[submit] --force-local; skipping pre-submit sync"
+    return 0
+  fi
+
+  local sync_tool="$MAPI_ROOT/tools/$HPC/sync"
+  if [[ ! -x "$sync_tool" ]]; then
+    echo "[submit] WARNING: sync tool not found or not executable: $sync_tool (skipping pre-submit sync)" >&2
+    return 0
+  fi
+
+  echo "[submit] running pre-submit sync: $sync_tool --up"
+  "$sync_tool" --up
+}
+
+# ----------------- sync phase (local only) ------------------
+run_presubmit_sync
+
+# ----------------- rewrite tokens -----------------
+REMOTE_CMD="$(rewrite_tokens "$CMD")"
+REMOTE_OUTDIR="$(rewrite_tokens "$OUTDIR_REMOTE")"
+
+REMOTE_CMD_IN_OUTDIR="mkdir -p \"$REMOTE_OUTDIR\" && cd \"$REMOTE_OUTDIR\" && $REMOTE_CMD"
+
+if [[ "${MAPI_DEBUG:-0}" == "1" ]]; then
+  echo "[DEBUG] HOST=${MAPI_REMOTE_HOST:-${HOST:-}}"
+  echo "[DEBUG] HPC_PARTITION=$HPC_PARTITION"
+  echo "[DEBUG] HPC_ALLOCATION=$HPC_ALLOCATION"
+  echo "[DEBUG] TIME_LIMIT=${TIME_LIMIT:-<cluster default>}"
+  echo "[DEBUG] CPUS_PER_TASK=$CPUS_PER_TASK"
+  echo "[DEBUG] NODES=$NODES"
+  echo "[DEBUG] MEM_PER_NODE=${MEM_PER_NODE:-<cluster default>}"
+  echo "[DEBUG] GPUS=${GPUS:-<none>}"
+  echo "[DEBUG] GPUS_PER_TASK=${GPUS_PER_TASK:-<none>}"
+  echo "[DEBUG] GPU_TYPE=${GPU_TYPE:-<none>}"
+  echo "[DEBUG] REMOTE_OUTDIR=$REMOTE_OUTDIR"
+  echo "[DEBUG] REMOTE_CMD_IN_OUTDIR=$REMOTE_CMD_IN_OUTDIR"
+  echo "[DEBUG] MAPI_REMOTE_SUBMIT=${MAPI_REMOTE_SUBMIT:-0}"
+fi
+
+# ============================================================
+# REMOTE MODE: actually build sbatch script and submit
+# (runs on Rivanna when MAPI_REMOTE_SUBMIT=1)
+# ============================================================
+if [[ "${MAPI_REMOTE_SUBMIT:-0}" == "1" ]]; then
+  [[ -n "$JOB_NAME" ]] || JOB_NAME="mapi-job"
+
+  # Quote the command for bash -lc
+  job_cmd_quoted="$(printf '%q' "$REMOTE_CMD_IN_OUTDIR")"
+
+  LOG_DIR="/scratch/$USER/mapi_logs"
+  mkdir -p "$LOG_DIR"
+
+  JOB_SCRIPT="$LOG_DIR/${JOB_NAME}.sbatch.$$"
+
+  {
+    echo "#!/usr/bin/env bash"
+    echo "# Auto-generated by MAPI submit (remote mode)"
+    echo "#SBATCH --job-name=$JOB_NAME"
+    echo "#SBATCH --output=$LOG_DIR/${JOB_NAME}-%j.out"
+    echo "#SBATCH --error=$LOG_DIR/${JOB_NAME}-%j.err"
+    echo "#SBATCH --partition=$HPC_PARTITION"
+    echo "#SBATCH --nodes=$NODES"
+    echo "#SBATCH --cpus-per-task=$CPUS_PER_TASK"
+    if [[ -n "$TIME_LIMIT" ]]; then
+      echo "#SBATCH --time=$TIME_LIMIT"
+    fi
+    if [[ -n "$HPC_ALLOCATION" ]]; then
+      echo "#SBATCH --account=$HPC_ALLOCATION"
+    fi
+    if [[ -n "$MEM_PER_NODE" ]]; then
+      echo "#SBATCH --mem=$MEM_PER_NODE"
+    fi
+
+    # GPUs: prefer gpus-per-task if set, else gpus
+    if [[ -n "$GPUS_PER_TASK" ]]; then
+      echo "#SBATCH --gpus-per-task=$GPUS_PER_TASK"
+    elif [[ -n "$GPUS" ]]; then
+      echo "#SBATCH --gpus=$GPUS"
+    fi
+
+    # GPU type via gres if requested
+    if [[ -n "$GPU_TYPE" ]]; then
+      # Decide count for gres
+      local_count="1"
+      if [[ -n "$GPUS_PER_TASK" ]]; then
+        local_count="$GPUS_PER_TASK"
+      elif [[ -n "$GPUS" ]]; then
+        local_count="$GPUS"
+      fi
+      echo "#SBATCH --gres=gpu:${GPU_TYPE}:${local_count}"
+    fi
+
+    echo
+    echo "set -euo pipefail"
+    echo "export MAPI_ROOT=\"$MAPI_ROOT\""
+    echo 'export ENV_PREFIX_ROOT="$MAPI_ROOT/envs"'
+    echo 'CONDA_BIN="$MAPI_ROOT/tools/miniconda3/bin/conda"'
+    echo 'if [[ ! -x "$CONDA_BIN" ]]; then'
+    echo '  echo "ERROR: conda not found at $CONDA_BIN" >&2'
+    echo '  exit 127'
+    echo 'fi'
+    echo "\"\$CONDA_BIN\" run -p \"\$MAPI_ROOT/envs/$ENV_NAME\" bash -lc $job_cmd_quoted"
+  } >"$JOB_SCRIPT"
+
+  chmod +x "$JOB_SCRIPT"
+
+  if [[ "${MAPI_DEBUG:-0}" == "1" ]]; then
+    echo "[submit-remote] job script:"
+    sed 's/^/[JOB] /' "$JOB_SCRIPT"
+  fi
+
+  sbatch "$JOB_SCRIPT"
+  exit $?
+fi
+
+# ============================================================
+# LOCAL MODE: forward to remote_submit and parse job ID
+# ============================================================
+FWD=( --name "$JOB_NAME"
+      --env-name "$ENV_NAME"
+      --out "$REMOTE_OUTDIR"
+      --partition "$HPC_PARTITION"
+      --allocation "$HPC_ALLOCATION"
+      --cpus "$CPUS_PER_TASK"
+      --nodes "$NODES" )
+
+# Only forward time/mem/gpu if set
+if [[ -n "$TIME_LIMIT" ]]; then
+  FWD+=( --time "$TIME_LIMIT" )
+fi
+if [[ -n "$MEM_PER_NODE" ]]; then
+  FWD+=( --mem "$MEM_PER_NODE" )
+fi
+if [[ -n "$GPUS" ]]; then
+  FWD+=( --gpus "$GPUS" )
+fi
+if [[ -n "$GPUS_PER_TASK" ]]; then
+  FWD+=( --gpus-per-task "$GPUS_PER_TASK" )
+fi
+if [[ -n "$GPU_TYPE" ]]; then
+  FWD+=( --gpu-type "$GPU_TYPE" )
+fi
+
+REMOTE_REPLY="$(remote_submit "$REMOTE_CMD_IN_OUTDIR" "${FWD[@]}")"
+echo "$REMOTE_REPLY"
+
+JOBID="$(printf '%s\n' "$REMOTE_REPLY" | awk '/Submitted batch job/ {print $4}')"
+if [[ -n "${JOBID:-}" ]]; then
+  echo "Submitted: $JOB_NAME ($JOBID)"
+fi

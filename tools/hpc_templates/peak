@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MAPI_ROOT="${MAPI_ROOT:-$HOME/MalariAPI}"
+CFG="$MAPI_ROOT/tools/hpc_config.json"
+[[ -f "$MAPI_ROOT/bin/mapi.env" ]] && . "$MAPI_ROOT/bin/mapi.env"
+
+SCRIPT_DIR="$(dirname "$0")"
+HPC_NAME="$(basename "$SCRIPT_DIR")"
+HPC="${MAPI_HPC:-$HPC_NAME}"
+
+source "$HOME/MalariAPI/tools/hpc_lib"
+load_hpc "$HPC"
+#ensure_key_login
+
+LOCAL_SCRATCH="${MAPI_SCRATCH:-$MAPI_ROOT/scratch}"
+case "$(pwd)" in
+  "$LOCAL_SCRATCH"|"$LOCAL_SCRATCH"/*) ;;
+  *) echo "peak: run from inside $LOCAL_SCRATCH" >&2; exit 1;;
+esac
+
+rel="${PWD#"$LOCAL_SCRATCH"/}"
+REMOTE_PATH="$REMOTE_SCRATCH/scratch"
+[[ "$rel" != "$PWD" && -n "$rel" ]] && REMOTE_PATH="$REMOTE_PATH/$rel"
+
+DEPTH=2
+# try tree under your Miniconda mirror first, fall back to system
+hpc_ssh_sh -c '
+  set -e
+  T1="$HOME/MalariAPI/tools/miniconda3/bin/tree"
+  if [ -x "$T1" ]; then exec "$T1" -C -L '"$DEPTH"' '"$(printf '%q' "$REMOTE_PATH")"'; fi
+  exec tree -C -L '"$DEPTH"' '"$(printf '%q' "$REMOTE_PATH")"'
+'

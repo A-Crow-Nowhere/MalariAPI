@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$HOME/MalariAPI/tools/hpc_lib"
+
+HPC="${MAPI_HPC:-rivanna}"
+load_hpc "$HPC"
+ensure_key_login
+
+[[ $# -ge 1 ]] || { echo "Usage: mapi ${HPC} cancel JOBID [JOBID...]" >&2; exit 2; }
+
+# simple remote command, no need for login shell
+REMOTE_CMD="scancel $(printf '%s ' "$@")"
+
+if declare -f hpc_ssh_fast >/dev/null 2>&1; then
+  hpc_ssh_fast "$REMOTE_CMD"
+else
+  ssh "$HOST" "$REMOTE_CMD"
+fi
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
+
+# hpc_cancel: cancel one or more Slurm jobs on the configured HPC
+# Installed/used as: mapi <hpc> cancel [--all] JOBID [JOBID...]
+
+source "$HOME/MalariAPI/tools/hpc_lib"
+
+HPC="${MAPI_HPC:-rivanna}"
+
+usage() {
+  cat <<EOF
+Usage:
+  mapi ${HPC} cancel JOBID [JOBID...]
+  mapi ${HPC} cancel --all
+
+Cancel one or more Slurm jobs on the configured HPC.
+
+Options:
+  -a, --all      Cancel ALL jobs for your user on this HPC.
+  -h, --help     Show this help message and exit.
+
+Examples:
+  mapi ${HPC} cancel 123456
+  mapi ${HPC} cancel 123456 123457
+  mapi ${HPC} cancel --all
+EOF
+}
+
+ALL=0
+
+# Parse simple options
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -a|--all)
+      ALL=1
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      # first non-option = jobid; stop option parsing
+      break
+      ;;
+  esac
+done
+
+if (( ALL )) && [[ $# -gt 0 ]]; then
+  echo "Error: --all cannot be combined with explicit JOBIDs." >&2
+  usage >&2
+  exit 2
+fi
+
+if (( ! ALL )) && [[ $# -lt 1 ]]; then
+  usage >&2
+  exit 2
+fi
+
+load_hpc "$HPC"
+ensure_key_login
+
+if (( ALL )); then
+  # Derive remote username from HOST if not already set
+  REMOTE_USER="${REMOTE_USER:-"${HOST%@*}"}"
+
+  echo "About to CANCEL ALL jobs for user '${REMOTE_USER}' on '${HPC}'. Continue? [y/N]" >&2
+  read -r ans
+  case "$ans" in
+    y|Y|yes|YES) ;;
+    *)
+      echo "Aborted; no jobs were canceled." >&2
+      exit 1
+      ;;
+  esac
+
+  # Cancel all jobs for this user on the remote HPC
+  hpc_ssh scancel --user="$REMOTE_USER"
+else
+  # Cancel only specified job IDs
+  hpc_ssh scancel "$@"
+fi

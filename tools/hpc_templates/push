@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# mapi <hpc> push --from <local> --to <remote-path>
+set -euo pipefail
+
+MAPI_ROOT="${MAPI_ROOT:-$HOME/MalariAPI}"
+ENV_FILE="$MAPI_ROOT/bin/mapi.env"
+[[ -f "$ENV_FILE" ]] && . "$ENV_FILE"  # shellcheck disable=SC1090
+
+SCRIPT_DIR="$(dirname "$0")"
+HPC_NAME="$(basename "$SCRIPT_DIR")"
+HPC="${MAPI_HPC:-$HPC_NAME}"
+
+source "$HOME/MalariAPI/tools/hpc_lib"
+load_hpc "$HPC"
+ensure_key_login
+
+LOCAL_SRC="" REMOTE_DST_RAW=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --from) LOCAL_SRC="$2"; shift 2;;
+    --to)   REMOTE_DST_RAW="$2"; shift 2;;
+    *) echo "push: unknown arg $1" >&2; exit 2;;
+  esac
+done
+[[ -n "$LOCAL_SRC" && -n "$REMOTE_DST_RAW" ]] || { echo "usage: mapi $HPC push --from <local> --to <remote>"; exit 1; }
+
+REMOTE_DST="$(rewrite_tokens "$REMOTE_DST_RAW")"
+
+if [[ -d "$LOCAL_SRC" ]]; then
+  _mapi_rsync_send "$LOCAL_SRC" "$HOST:$REMOTE_DST" 1
+else
+  _mapi_rsync_send "$LOCAL_SRC" "$HOST:$REMOTE_DST" 0
+fi

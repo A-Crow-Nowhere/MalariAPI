@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# mapi <hpc> pull --from <remote-path> --to <local>
+set -euo pipefail
+
+MAPI_ROOT="${MAPI_ROOT:-$HOME/MalariAPI}"
+ENV_FILE="$MAPI_ROOT/bin/mapi.env"
+[[ -f "$ENV_FILE" ]] && . "$ENV_FILE"  # shellcheck disable=SC1090
+
+SCRIPT_DIR="$(dirname "$0")"
+HPC_NAME="$(basename "$SCRIPT_DIR")"
+HPC="${MAPI_HPC:-$HPC_NAME}"
+
+source "$HOME/MalariAPI/tools/hpc_lib"
+load_hpc "$HPC"
+ensure_key_login
+
+REMOTE_SRC_RAW="" LOCAL_DST=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --from) REMOTE_SRC_RAW="$2"; shift 2;;
+    --to)   LOCAL_DST="$2"; shift 2;;
+    *) echo "pull: unknown arg $1" >&2; exit 2;;
+  esac
+done
+[[ -n "$REMOTE_SRC_RAW" && -n "$LOCAL_DST" ]] || { echo "usage: mapi $HPC pull --from <remote> --to <local>"; exit 1; }
+
+# Expand tokens ([scratch] etc.) to concrete remote path (no $USER literals)
+REMOTE_SRC="$(rewrite_tokens "$REMOTE_SRC_RAW")"
+
+# Treat --to as dir if it exists or ends with /
+is_dir_target=0
+[[ -d "$LOCAL_DST" || "$LOCAL_DST" == */ ]] && is_dir_target=1
+
+_q() { printf '%q' "$1"; }
+
+# Remote is a directory?
+if hpc_ssh "test -d $(_q "$REMOTE_SRC")"; then
+  if [[ $is_dir_target -eq 1 ]]; then
+    _mapi_recv_into_dir "$HOST:$REMOTE_SRC" "$LOCAL_DST"
+  else
+    mkdir -p "$LOCAL_DST"
+    _mapi_recv_into_dir "$HOST:$REMOTE_SRC/" "$LOCAL_DST"
+  fi
+else
+  # Glob?
+  if [[ "$REMOTE_SRC_RAW" == *\** || "$REMOTE_SRC_RAW" == *\?* || "$REMOTE_SRC_RAW" == *\[* ]]; then
+    mkdir -p "$LOCAL_DST"
+    _mapi_recv_into_dir "$HOST:'$REMOTE_SRC_RAW'" "$LOCAL_DST"
+  else
+    # Single file
+    if [[ $is_dir_target -eq 1 ]]; then
+      _mapi_recv_into_dir "$HOST:$REMOTE_SRC" "$LOCAL_DST"
+    else
+      _mapi_recv_file_exact "$HOST:$REMOTE_SRC" "$LOCAL_DST"
+    fi
+  fi
+fi
