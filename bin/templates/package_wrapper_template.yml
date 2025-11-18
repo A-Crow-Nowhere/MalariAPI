@@ -1,0 +1,13 @@
+# ===== Package metadata =====
+name: <name>                     # must match YAML basename and wrapper name
+entry: <name>                    # wrapper filename at bin/packages/<name>
+env_name: <name>                 # EXACT 1:1 with package name
+
+description: "Short description of the package."
+
+# ===== Environment spec (generated/stamped by tools/gen_env.sh) =====
+env:
+  channels: [conda-forge, bioconda, defaults]
+  dependencies:
+    - python >=3.10
+    # + whatever gen_env detects for this package (pysam, click, etc.)

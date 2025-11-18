@@ -1,0 +1,7 @@
+name: summarize_bam
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - pysam

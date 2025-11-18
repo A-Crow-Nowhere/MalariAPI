@@ -1,0 +1,495 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
+
+# ------------------------------------------------------------
+# Locate repo root and tools
+# ------------------------------------------------------------
+THIS="$(readlink -f "$0" 2>/dev/null || python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$0")"
+
+# Prefer an explicit MalariAPI root under $HOME if it exists
+if [[ -z "${REPO_ROOT:-}" ]]; then
+  if [[ -d "$HOME/MalariAPI" ]]; then
+    REPO_ROOT="$HOME/MalariAPI"
+  else
+    # Fallback: infer from script location (supports dev checkouts)
+    REPO_ROOT="$(cd "$(dirname "$THIS")/.." && pwd)"
+  fi
+fi
+
+# MAPI_ROOT is the “logical” root; can override via env or .mapi.env
+MAPI_ROOT="${MAPI_ROOT:-$REPO_ROOT}"
+TOOLS_DIR="$MAPI_ROOT/tools"
+CFG_JSON="$TOOLS_DIR/hpc_config.json"
+
+# Load installer exports if present
+if      [ -f "$MAPI_ROOT/bin/.mapi.env" ]; then
+  # shellcheck source=/dev/null
+  . "$MAPI_ROOT/bin/.mapi.env"
+elif    [ -f "$MAPI_ROOT/bin/mapi.env" ]; then  # back-compat
+  # shellcheck source=/dev/null
+  . "$MAPI_ROOT/bin/mapi.env"
+fi
+
+have_jq() { command -v jq >/dev/null 2>&1; }
+
+# ------------------------------------------------------------
+# Conda root resolver (for local modules/pipelines/packages)
+# ------------------------------------------------------------
+resolve_conda_root() {
+  if [[ -n "${MAPI_CONDA_ROOT:-}" && -d "$MAPI_CONDA_ROOT" ]]; then
+    printf '%s\n' "$MAPI_CONDA_ROOT"
+    return 0
+  fi
+  if [[ -d "$MAPI_ROOT/tools/miniconda3" ]]; then
+    printf '%s\n' "$MAPI_ROOT/tools/miniconda3"
+    return 0
+  fi
+  # Fallback: try to infer from "conda" on PATH
+  if command -v conda >/dev/null 2>&1; then
+    local c
+    c="$(command -v conda)"
+    printf '%s\n' "$(cd "$(dirname "$c")/.." && pwd)"
+    return 0
+  fi
+  return 1
+}
+
+# Make sure CONDA_ROOT/PATH set for module/pipeline/package runs
+if CONDA_ROOT="$(resolve_conda_root)"; then
+  export PATH="$CONDA_ROOT/bin:$PATH"
+  export CONDA_ENVS_DIRS="$MAPI_ROOT/envs"
+fi
+
+# ------------------------------------------------------------
+# Shared layout for module/pipeline/package/script/tools
+# ------------------------------------------------------------
+BIN_DIR="$MAPI_ROOT/bin"
+MOD_DIR="$BIN_DIR/modules"
+PIPE_DIR="$BIN_DIR/pipelines"
+PKG_DIR="$BIN_DIR/packages"
+SCRIPT_DIR="$BIN_DIR/scripts"
+PIPE_YAML_DIR="$MAPI_ROOT/pipeline/yaml"
+
+
+# NOTE: env YAMLs
+#  - modules:   bin/modules/yaml/<name>.yml
+#  - pipelines: pipeline/yaml/<name>.yml   (repo-root, singular "pipeline")
+#  - packages:  bin/packages/<name>/yaml/<name>.yml
+PIPE_YAML_DIR="$REPO_ROOT/pipeline/yaml"
+
+# YAML helpers
+find_module_yaml() {
+  local n="$1"
+  local candidates=(
+    "$REPO_ROOT/modules/yaml/$n.yml"
+    "$REPO_ROOT/modules/yaml/$n.yaml"
+    "$BIN_DIR/modules/yaml/$n.yml"
+    "$BIN_DIR/modules/yaml/$n.yaml"
+  )
+  local c
+  for c in "${candidates[@]}"; do
+    [[ -f "$c" ]] && { echo "$c"; return 0; }
+  done
+  return 1
+}
+
+# Support both older "env_name:" style and plain env "name:" style
+get_env_name_from_yaml() {
+  local y="$1"
+  local val
+  val="$(grep -E '^env_name:' "$y" 2>/dev/null | head -n1 | sed 's/env_name:[[:space:]]*//')" || true
+  if [[ -n "$val" ]]; then
+    printf '%s\n' "$val"
+    return 0
+  fi
+  val="$(grep -E '^name:' "$y" 2>/dev/null | head -n1 | sed 's/name:[[:space:]]*//')" || true
+  [[ -n "$val" ]] && printf '%s\n' "$val"
+}
+
+find_pipeline_yaml() {
+  local n="$1"
+  local c
+  for c in "$PIPE_YAML_DIR/$n.yml" "$PIPE_YAML_DIR/$n.yaml"; do
+    [[ -f "$c" ]] && { echo "$c"; return 0; }
+  done
+  return 1
+}
+
+# ------------------------------------------------------------
+# Listing helpers (ignore hidden)
+# ------------------------------------------------------------
+list_items() {
+  case "$1" in
+    modules)
+      [[ -d "$MOD_DIR" ]] && \
+        find "$MOD_DIR" -maxdepth 1 -type f -name '*.sh' ! -name '.*' -printf '%f\n' 2>/dev/null \
+        | sed 's/\.sh$//' | sort || true
+      ;;
+    pipelines)
+      [[ -d "$PIPE_DIR" ]] && \
+        find "$PIPE_DIR" -maxdepth 1 -type f -name '*.sh' ! -name '.*' -printf '%f\n' 2>/dev/null \
+        | sed 's/\.sh$//' | sort || true
+      ;;
+    packages)
+      [[ -d "$PKG_DIR" ]] && \
+        find "$PKG_DIR" -maxdepth 1 -mindepth 1 -type d ! -name '.*' -printf '%f\n' 2>/dev/null \
+        | sort || true
+      ;;
+    scripts)
+      [[ -d "$SCRIPT_DIR" ]] && \
+        find "$SCRIPT_DIR" -maxdepth 1 -type f -executable ! -name '.*' -printf '%f\n' 2>/dev/null \
+        | sort || true
+      ;;
+    tools)
+      [[ -d "$TOOLS_DIR" ]] && \
+        find "$TOOLS_DIR" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' \) ! -name '.*' -printf '%f\n' 2>/dev/null \
+        | sed -E 's/\.(sh|py)$//' | sort || true
+      ;;
+    *)
+      echo "unknown type: $1" >&2; return 2;;
+  esac
+}
+
+# ------------------------------------------------------------
+# Env selection helper with warnings + default fallback
+# ------------------------------------------------------------
+_choose_env_with_fallback() {
+  # args: kind name yaml_kind [meta_for_package]
+  local kind="$1"; shift
+  local name="$1"; shift
+  local yaml_kind="$1"; shift || true
+
+  local meta=""
+  local env_name=""
+  local prefix=""
+
+  case "$yaml_kind" in
+    module)
+      meta="$(find_module_yaml "$name" 2>/dev/null || true)"
+      ;;
+    pipeline)
+      meta="$(find_pipeline_yaml "$name" 2>/dev/null || true)"
+      ;;
+    package)
+      # for packages, the caller passes meta explicitly as $1
+      meta="${1:-}"
+      ;;
+  esac
+
+  if [[ "$yaml_kind" != "package" ]]; then
+    # modules/pipelines discover meta here
+    if [[ -n "$meta" ]]; then
+      env_name="$(get_env_name_from_yaml "$meta")"
+      if [[ -z "$env_name" ]]; then
+        echo "[mapi] WARNING: $kind '$name' metadata '$meta' has no env name; using 'default'." >&2
+        env_name="default"
+      else
+        echo "[mapi] Using env '$env_name' for $kind '$name' (from $meta)." >&2
+      fi
+    else
+      echo "[mapi] WARNING: no metadata YAML for $kind '$name'; using 'default' environment." >&2
+      env_name="default"
+    fi
+  else
+    # packages: meta already known, env_name from YAML
+    if [[ -n "$meta" && -f "$meta" ]]; then
+      env_name="$(get_env_name_from_yaml "$meta")"
+    fi
+    if [[ -z "$env_name" ]]; then
+      echo "[mapi] WARNING: package '$name' has no env name; using 'default'." >&2
+      env_name="default"
+    else
+      echo "[mapi] Using env '$env_name' for package '$name' (from $meta)." >&2
+    fi
+  fi
+
+  prefix="$REPO_ROOT/envs/$env_name"
+  if [[ ! -d "$prefix" ]]; then
+    echo "[mapi] WARNING: env prefix not found: $prefix; falling back to 'default'." >&2
+    env_name="default"
+    prefix="$REPO_ROOT/envs/default"
+    if [[ ! -d "$prefix" ]]; then
+      echo "[mapi] ERROR: default env not found at $prefix. Please install it (tools/install_envs --only default)." >&2
+      return 3
+    fi
+  fi
+
+  echo "[mapi] Running $kind '$name' in environment '$env_name'." >&2
+  printf '%s\n' "$prefix"
+}
+
+# ------------------------------------------------------------
+# Module/pipeline/package/script/tools runner
+# ------------------------------------------------------------
+run_item() {
+  local t="$1"; shift || true
+  local name="${1:-}"; [[ -n "$name" ]] && shift || true
+
+  case "$t" in
+    modules)
+      local entry="$MOD_DIR/$name.sh"
+      [[ -x "$entry" ]] || { echo "mapi: module not found/executable: $entry" >&2; exit 4; }
+
+      local prefix
+      prefix="$(_choose_env_with_fallback module "$name" module)" || exit $?
+
+      export MAPI_REPO_ROOT="$REPO_ROOT"
+      export MAPI_MODULE_YAML="$(find_module_yaml "$name" 2>/dev/null || true)"
+      exec conda run -p "$prefix" bash "$entry" "$@"
+      ;;
+
+    pipelines)
+      local entry="$PIPE_DIR/$name.sh"
+      [[ -x "$entry" ]] || { echo "mapi: pipeline not found/executable: $entry" >&2; exit 4; }
+
+      local prefix
+      prefix="$(_choose_env_with_fallback pipeline "$name" pipeline)" || exit $?
+
+      export MAPI_REPO_ROOT="$REPO_ROOT"
+      export MAPI_PIPELINE_YAML="$(find_pipeline_yaml "$name" 2>/dev/null || true)"
+      exec conda run -p "$prefix" bash "$entry" "$@"
+      ;;
+
+    packages)
+      local wrapper="$PKG_DIR/$name"
+      local pkg_dir="$PKG_DIR/$name"
+      [[ -x "$wrapper" && -d "$pkg_dir" ]] || { echo "mapi: package wrapper or dir missing: $wrapper / $pkg_dir" >&2; exit 4; }
+
+      # Find package env YAML
+      local meta=""
+      local c
+      for c in "$pkg_dir/yaml/$name.yml" "$pkg_dir/yaml/$name.yaml" "$pkg_dir/$name.yml" "$pkg_dir/$name.yaml"; do
+        [[ -f "$c" ]] && { meta="$c"; break; }
+      done
+
+      if [[ -z "$meta" ]]; then
+        echo "[mapi] WARNING: Missing package YAML for '$name'; using 'default' environment." >&2
+      else
+        local env_name_raw=""
+        env_name_raw="$(get_env_name_from_yaml "$meta")"
+        if [[ -n "$env_name_raw" && "$env_name_raw" != "$name" ]]; then
+          echo "[mapi] WARNING: package '$name' has env name '$env_name_raw' (expected '$name')." >&2
+        fi
+      fi
+
+      local prefix
+      prefix="$(_choose_env_with_fallback package "$name" package "$meta")" || exit $?
+
+      export MAPI_REPO_ROOT="$REPO_ROOT"
+      export MAPI_PACKAGE_YAML="$meta"
+      export MAPI_PACKAGE_DIR="$pkg_dir"
+
+      exec conda run -p "$prefix" -- "$wrapper" "$@"
+      ;;
+
+    scripts)
+      local entry="$SCRIPT_DIR/$name"
+      [[ -x "$entry" ]] || { echo "mapi: script not found or not executable: $entry" >&2; exit 4; }
+      exec "$entry" "$@"
+      ;;
+
+    tools)
+      local sh="$TOOLS_DIR/$name.sh"
+      local py="$TOOLS_DIR/$name.py"
+      if [[ -f "$sh" && "$(basename "$sh")" != .* ]]; then
+        exec bash "$sh" "$@"
+      elif [[ -f "$py" && "$(basename "$py")" != .* ]]; then
+        exec python3 "$py" "$@"
+      else
+        echo "mapi: tool not found: $name (looked for $sh or $py)" >&2
+        exit 4
+      fi
+      ;;
+
+    *)
+      echo "mapi: unknown type '$t'" >&2
+      exit 2
+      ;;
+  esac
+}
+
+# ------------------------------------------------------------
+# HPC tag expander for args ([scratch], [home])
+# ------------------------------------------------------------
+_expand_hpc_args() {
+  local hpc="$1"; shift
+  local -a out=()
+  local host home_root scratch_root
+
+  # Prefer env exports from installer
+  host="${MAPI_REMOTE_HOST:-}"
+  home_root="${REMOTE_MAPI_HOME:-}"
+  scratch_root="${REMOTE_MAPI_SCRATCH:-}"
+
+  # Fill from JSON if missing
+  if { [[ -z "$host" || -z "$home_root" || -z "$scratch_root" ]] && [[ -f "$CFG_JSON" ]] && have_jq; }; then
+    host="${host:-$(jq -r --arg h "$hpc" '.clusters[$h].host // empty' "$CFG_JSON")}"
+    home_root="${home_root:-$(jq -r --arg h "$hpc" '.clusters[$h].home_root // empty' "$CFG_JSON")}"
+    scratch_root="${scratch_root:-$(jq -r --arg h "$hpc" '.clusters[$h].scratch_root // empty' "$CFG_JSON")}"
+  fi
+
+  local arg sub
+  for arg in "$@"; do
+    case "$arg" in
+      "[scratch]"|"[scratch]/")
+        if [[ -n "$scratch_root" ]]; then
+          out+=("$scratch_root/scratch")
+        else
+          out+=("$arg")
+        fi
+        ;;
+      "[scratch]"/*)
+        if [[ -n "$scratch_root" ]]; then
+          sub="${arg#\[scratch]/}"
+          out+=("$scratch_root/scratch/$sub")
+        else
+          out+=("$arg")
+        fi
+        ;;
+      "[home]"|"[home]/")
+        if [[ -n "$home_root" ]]; then
+          out+=("$home_root")
+        else
+          out+=("$arg")
+        fi
+        ;;
+      "[home]"/*)
+        if [[ -n "$home_root" ]]; then
+          sub="${arg#\[home]/}"
+          out+=("$home_root/$sub")
+        else
+          out+=("$arg")
+        fi
+        ;;
+      *)
+        out+=("$arg")
+        ;;
+    esac
+  done
+
+  printf '%s\0' "${out[@]}"
+}
+
+# ------------------------------------------------------------
+# Help
+# ------------------------------------------------------------
+print_global_help() {
+  cat <<EOF
+mapi: MalariAPI CLI
+
+HPC usage:
+  mapi <hpc-name> <command> [args...]
+    e.g. mapi rivanna submit --cmd "echo hi > [scratch]/test.out"
+
+Module/pipeline/package usage:
+  mapi modules
+  mapi modules <name> [args...]
+  mapi pipelines
+  mapi pipelines <name> [args...]
+  mapi packages
+  mapi packages <name> [args...]
+  mapi scripts
+  mapi scripts <name> [args...]
+  mapi tools
+  mapi tools <name> [args...]
+
+Available HPCs (tools/* directories):
+EOF
+
+  if [[ -d "$TOOLS_DIR" ]]; then
+    local d bn
+    for d in "$TOOLS_DIR"/*; do
+      [[ -d "$d" ]] || continue
+      bn="$(basename "$d")"
+      case "$bn" in
+        base|yaml|misc|templates|hpc_templates|scripts|bin|_*|miniconda3)
+          continue
+          ;;
+      esac
+      echo "  - $bn"
+    done
+  fi
+
+  echo
+  echo "Discovered (hidden entries suppressed):"
+  echo "  modules  :";   list_items modules   | sed 's/^/    - /' || true
+  echo "  pipelines:";   list_items pipelines | sed 's/^/    - /' || true
+  echo "  packages :";   list_items packages  | sed 's/^/    - /' || true
+  echo "  scripts  :";   list_items scripts   | sed 's/^/    - /' || true
+  echo "  tools    :";   list_items tools     | sed 's/^/    - /' || true
+}
+
+# ------------------------------------------------------------
+# Main router
+# ------------------------------------------------------------
+if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
+  print_global_help
+  exit 0
+fi
+
+# Case A: "mapi <hpc>" → list its tools
+if [[ $# -eq 1 && -d "$TOOLS_DIR/$1" ]]; then
+  case "$1" in
+    base|yaml|misc|templates|hpc_templates|scripts|bin|_*|miniconda3)
+      ;; # fall through to unknown command
+    *)
+      echo "HPC '$1' tools:"
+      for f in "$TOOLS_DIR/$1"/*; do
+        [[ -x "$f" ]] || continue
+        bn="$(basename "$f")"
+        echo "  - $bn"
+      done
+      exit 0
+      ;;
+  esac
+fi
+
+# Case B: "mapi <hpc> <cmd> ..." → HPC dispatch
+if [[ $# -ge 2 && -d "$TOOLS_DIR/$1" && -x "$TOOLS_DIR/$1/$2" ]]; then
+  _mapi_hpc="$1"
+  _mapi_cmd="$2"
+  shift 2
+
+  # No remaining args → just run the HPC tool as-is
+  if [[ $# -eq 0 ]]; then
+    exec "$TOOLS_DIR/$_mapi_hpc/$_mapi_cmd"
+  fi
+
+  # Otherwise expand [scratch]/[home] tokens in the remaining args
+  mapfile -d '' _expanded < <(_expand_hpc_args "$_mapi_hpc" "$@")
+  exec "$TOOLS_DIR/$_mapi_hpc/$_mapi_cmd" "${_expanded[@]}"
+fi
+# Case C: "mapi hpc <cmd> ..." → use default_hpc from config
+if [[ $# -ge 2 && "$1" == "hpc" && -f "$CFG_JSON" ]] && have_jq; then
+  _default_hpc="$(jq -r '.default_hpc // empty' "$CFG_JSON")"
+  _mapi_cmd="$2"
+  if [[ -n "$_default_hpc" && -x "$TOOLS_DIR/$_default_hpc/$_mapi_cmd" ]]; then
+    shift 2
+    mapfile -d '' _expanded < <(_expand_hpc_args "$_default_hpc" "$@")
+    exec "$TOOLS_DIR/$_default_hpc/$_mapi_cmd" "${_expanded[@]}"
+  fi
+fi
+
+# Case D: "mapi tools <name> ..." / "mapi modules <name> ..." / etc.
+case "${1:-}" in
+  modules|pipelines|packages|scripts|tools)
+    t="$1"; shift || true
+    if [[ $# -eq 0 ]]; then
+      list_items "$t"
+      exit 0
+    else
+      run_item "$t" "$@"
+    fi
+    ;;
+esac
+
+# Case E: local single-word tool in tools/
+if [[ $# -ge 1 && -x "$TOOLS_DIR/$1" && ! -d "$TOOLS_DIR/$1" ]]; then
+  _mapi_cmd="$1"; shift
+  exec "$TOOLS_DIR/$_mapi_cmd" "$@"
+fi
+
+# Fallback
+echo "mapi: unknown command. Run 'mapi --help'." >&2
+exit 2

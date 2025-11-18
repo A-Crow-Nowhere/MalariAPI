@@ -1,0 +1,28 @@
+# ===== Pipeline metadata =====
+name: wgs_basic                   # must match this YAML's basename and script name
+entry: wgs_basic.sh               # must exist in bin/pipelines/
+env_name: wgs_basic               # EXACT 1:1 with pipeline name
+
+description: "Example WGS pipeline (template)."
+
+# ===== Environment spec =====
+env:
+  channels: [conda-forge, bioconda, defaults]
+  dependencies:
+    - python >=3.10
+    - samtools
+    - bwa-mem2
+    - fastp
+
+# ===== Interface contract (optional but recommended for future validation) =====
+inputs:
+  - id: primary
+    required: false
+    flags: ["--in","--in1","-1"]
+    expects_ext: ["fastq.gz","fq.gz","tsv"]
+
+outputs:
+  out_dir_template: "{run_prefix}_mapi-out"  # for pipelines we key on run_prefix
+  products:
+    - tag: "mapiPipe"
+      exts: ["log","out"]
