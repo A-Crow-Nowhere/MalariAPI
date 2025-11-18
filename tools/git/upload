@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# tools/git/upload
+# Usage: mapi git upload
+# - Pushes the current branch to origin, setting upstream if needed.
+
+set -euo pipefail
+
+say(){ printf '%s\n' "$*" >&2; }
+have(){ command -v "$1" >/dev/null 2>&1; }
+
+THIS="$(readlink -f "$0" 2>/dev/null || python3 - <<'PY'
+import os,sys
+print(os.path.abspath(sys.argv[1]))
+PY
+"$0")"
+MAPI_ROOT="${MAPI_ROOT:-$(cd "$(dirname "$THIS")/../.." && pwd)}"
+
+cd "$MAPI_ROOT"
+
+if ! have git; then
+  say "!! git is not installed or not on PATH."
+  exit 1
+fi
+
+if [[ ! -d .git ]]; then
+  say "!! $MAPI_ROOT is not a git repository (no .git/)."
+  exit 1
+fi
+
+if ! git remote get-url origin >/dev/null 2>&1; then
+  say "!! No 'origin' remote configured."
+  say "   You probably need to fork on GitHub and set origin, e.g."
+  say "     git remote add origin git@github.com:<you>/MalariAPI.git"
+  exit 1
+fi
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+say "==> Uploading branch '$branch' to origin"
+git push -u origin "$branch"
+
+say "==> Upload complete. Your current branch is now tracked by origin/$branch."
