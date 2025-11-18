@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# tools/git/switch
+# Usage: mapi git switch <branch> [--force]
+# - Switches to an existing local branch, or
+#   creates it from origin/upstream/main if needed.
+
+set -euo pipefail
+
+say(){ printf '%s\n' "$*" >&2; }
+have(){ command -v "$1" >/dev/null 2>&1; }
+
+if [[ $# -lt 1 ]]; then
+  say "Usage: mapi git switch <branch> [--force]"
+  exit 1
+fi
+
+TARGET_BRANCH="$1"
+FORCE=0
+if [[ "${2:-}" == "--force" ]]; then
+  FORCE=1
+fi
+
+THIS="$(readlink -f "$0" 2>/dev/null || python3 - <<'PY'
+import os,sys
+print(os.path.abspath(sys.argv[1]))
+PY
+"$0")"
+MAPI_ROOT="${MAPI_ROOT:-$(cd "$(dirname "$THIS")/../.." && pwd)}"
+
+cd "$MAPI_ROOT"
+
+if ! have git; then
+  say "!! git is not installed or not on PATH."
+  exit 1
+fi
+
+if [[ ! -d .git ]]; then
+  say "!! $MAPI_ROOT is not a git repository (no .git/)."
+  exit 1
+fi
+
+if [[ $FORCE -eq 0 ]]; then
+  if [[ -n "$(git status --porcelain)" ]]; then
+    say "!! You have uncommitted changes."
+    say "   Commit or stash them, or rerun with:"
+    say "     mapi git switch $TARGET_BRANCH --force"
+    exit 1
+  fi
+fi
+
+remote_base="origin"
+if git remote get-url upstream >/dev/null 2>&1; then
+  remote_base="upstream"
+fi
+
+# If branch exists locally, just switch
+if git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1; then
+  say "==> Switching to existing local branch '$TARGET_BRANCH'"
+  git checkout "$TARGET_BRANCH"
+  exit 0
+fi
+
+say "==> No local branch '$TARGET_BRANCH' found. Looking on remotes..."
+
+# Try origin first
+if git rev-parse --verify "origin/$TARGET_BRANCH" >/dev/null 2>&1; then
+  say "==> Creating local branch from origin/$TARGET_BRANCH"
+  git fetch origin "$TARGET_BRANCH" || true
+  git checkout -b "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+  exit 0
+fi
+
+# Then upstream
+if git rev-parse --verify "upstream/$TARGET_BRANCH" >/dev/null 2>&1; then
+  say "==> Creating local branch from upstream/$TARGET_BRANCH"
+  git fetch upstream "$TARGET_BRANCH" || true
+  git checkout -b "$TARGET_BRANCH" "upstream/$TARGET_BRANCH"
+  exit 0
+fi
+
+# Else, create new branch from main
+say "==> No remote branch found; creating new branch '$TARGET_BRANCH' from main"
+git fetch "$remote_base" main || true
+git checkout main || git checkout -b main "$remote_base/main"
+git checkout -b "$TARGET_BRANCH"
+
+say "==> Now on new branch '$TARGET_BRANCH'."
