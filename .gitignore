@@ -15,8 +15,9 @@ __pycache__/
 
 # MAPI-specific large/ephemeral dirs
 scratch/
-env/            # your per-project env YAMLs are fine; but avoid committing whole conda env dirs
+envs/*/            # your per-project env YAMLs are fine; but avoid committing whole conda env dirs
 tools/miniconda3/
+docs/
 .gen/           # any generated artifacts if you have such a dir
 *.bak
 
@@ -44,4 +45,5 @@ tools/miniconda3/
 *.tsv.gz
 
 # If you *do* want to version small configs under env/yaml/, explicitly allow:
-!env/yaml/
+!envs/*.yaml
+!envs/*.yml
