@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# tools/git/update
+# Usage: mapi git update [--force]
+# - On main: fetch + merge from upstream/main (or origin/main if no upstream)
+# - On other branches: fetch + pull --rebase from origin/<branch>
+
+set -euo pipefail
+
+say(){ printf '%s\n' "$*" >&2; }
+have(){ command -v "$1" >/dev/null 2>&1; }
+
+FORCE=0
+if [[ "${1:-}" == "--force" ]]; then
+  FORCE=1
+fi
+
+# Resolve MAPI_ROOT from this script location
+THIS="$(readlink -f "$0" 2>/dev/null || python3 - <<'PY'
+import os,sys
+print(os.path.abspath(sys.argv[1]))
+PY
+"$0")"
+MAPI_ROOT="${MAPI_ROOT:-$(cd "$(dirname "$THIS")/../.." && pwd)}"
+
+cd "$MAPI_ROOT"
+
+if ! have git; then
+  say "!! git is not installed or not on PATH."
+  exit 1
+fi
+
+if [[ ! -d .git ]]; then
+  say "!! $MAPI_ROOT is not a git repository (no .git/)."
+  exit 1
+fi
+
+# Protect users from clobbering local work
+if [[ $FORCE -eq 0 ]]; then
+  if [[ -n "$(git status --porcelain)" ]]; then
+    say "!! You have uncommitted changes in $MAPI_ROOT."
+    say "   Commit or stash them, or rerun with:"
+    say "     mapi git update --force"
+    exit 1
+  fi
+fi
+
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+remote_base="origin"
+if git remote get-url upstream >/dev/null 2>&1; then
+  remote_base="upstream"
+fi
+
+say "==> MAPI_ROOT: $MAPI_ROOT"
+say "==> Current branch: $current_branch"
+
+if [[ "$current_branch" == "main" ]]; then
+  say "==> Updating main from $remote_base/main"
+  git fetch "$remote_base"
+  # Use a simple merge to avoid surprising rebases for new users
+  git merge "$remote_base/main"
+else
+  # For feature branches, update from origin by default
+  remote_feat="origin"
+  say "==> Updating branch '$current_branch' from $remote_feat/$current_branch"
+  git fetch "$remote_feat" || true
+  # If remote branch exists, rebase onto it; otherwise just pull from upstream main
+  if git rev-parse --verify "$remote_feat/$current_branch" >/dev/null 2>&1; then
+    git pull --rebase "$remote_feat" "$current_branch"
+  else
+    say "!! No remote branch $remote_feat/$current_branch found."
+    say "   You may want to push it first via: mapi git upload"
+  fi
+fi
+
+say "==> Update complete. (Your .gitignore was respected by git as usual.)"
