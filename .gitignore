@@ -5,6 +5,8 @@ Thumbs.db
 *.swo
 *.tmp
 *.log
+*.md
+*.MD
 
 # Python/R caches
 __pycache__/
