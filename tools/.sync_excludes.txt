@@ -1,0 +1,4 @@
+.git
+scratch
+tools/miniconda3
+tools/hpc_templates
