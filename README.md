@@ -21,11 +21,11 @@ Below, we outined a streamlined setup process for MalariAPI, covering both local
 Pick the box that matches what you did and what you want.
 
 <p align="center">
-  <img src="docs/installOptions_croppted-1.png" width="800">
+  <img src="docs/installOptions_cropped-1.png" width="800">
 </p>
 
 <p align="center">
-  <a href="docs/installOptions_croppted.pdf">Download PDF (copy-paste friendly)</a>
+  <a href="docs/installOptions_cropped.pdf">Download PDF (copy-paste friendly)</a>
 </p>
 
 ### After any of the above
