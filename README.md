@@ -37,7 +37,7 @@ This lets you push to your own fork while still pulling updates from the main re
 Pick the box that matches what you did and what you want.
 
 <p align="center">
-  <img src="docs/installOptions_cropped-1.png" width="900">
+  <img src="docs/installOptions_cropped-1.png" width="11000">
 </p>
 
 <p align="center">
