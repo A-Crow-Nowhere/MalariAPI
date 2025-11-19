@@ -14,13 +14,43 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
    7. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
 
 ## Quick Install MalariAPI (MAPI)
-### MAPI (MalariAPI) — Bash-first Modular Runner
-```
-# Quick install
-curl -fsSL https://raw.githubusercontent.com/A-Crow-Nowhere/MalariAPI/main/tools/install_mapi.sh -o install_mapi.sh
-chmod +x install_mapi.sh
-MINICONDA_HOME="$HOME/tools/miniconda3" ./install_mapi.sh
-```
+## 🚀 Quick install (local + HPC)
+
+These steps assume:
+
+- You have **git**, **SSH**, and either **curl** or **wget** installed.
+- You have access to an HPC (e.g. UVA Rivanna) and a valid username there.
+
+> 🧠 If you're new to git: just follow the commands as written, replacing the
+> placeholders (`<your-github-username>`, `<your-hpc-username>`, etc.).
+
+---
+
+### 1. Fork (optional but recommended)
+
+If you plan to contribute code:
+
+1. Go to the canonical repo:  
+   https://github.com/A-Crow-Nowhere/MalariAPI
+2. Click **Fork** and create your own copy under your GitHub account.
+
+You’ll use your fork as `origin`, and the canonical repo as `upstream`.
+
+---
+
+### 2. Clone MalariAPI to your local machine
+
+On your laptop / WSL / workstation:
+
+```bash
+# If you forked:
+git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI
+
+# Or, if you just want a read-only clone of the canonical repo:
+# git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI
+
+cd ~/MalariAPI
+
 
 ```MalariAPI/
 ├── bin
