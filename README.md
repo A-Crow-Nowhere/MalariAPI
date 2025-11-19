@@ -14,42 +14,127 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
    7. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
 
 ## Quick Install MalariAPI (MAPI)
-## 🚀 Quick install (local + HPC)
+# Quick Install Guide (Local and HPC)
 
-These steps assume:
+This document outlines a streamlined setup process for MalariAPI, covering both local installation and HPC configuration.
 
-- You have **git**, **SSH**, and either **curl** or **wget** installed.   << See [initial setup](docs/setup_MalariAPI.md) 
-- You have access to an HPC and a valid username there.                   << Optional, see [HPC setup](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/HPC_Guide.md)
+## 1. (Optional) Fork the Repository
 
-> 🧠 If you're new to git: just follow the commands as written, replacing the
-> placeholders (`<your-github-username>`, `<your-hpc-username>`, etc.).
+If you plan to contribute:
 
----
+1. Visit: https://github.com/A-Crow-Nowhere/MalariAPI
+2. Select "Fork" to create your personal copy.
 
-### 1. Fork (optional but recommended)
+This lets you push to your own fork while still pulling updates from the main repository.
 
-If you plan to contribute code:
+## 2. Clone MalariAPI to Your Local Machine
 
-1. Go to the canonical repo:  
-   https://github.com/A-Crow-Nowhere/MalariAPI
-2. Click **Fork** and create your own copy under your GitHub account.
-
-You’ll use your fork as `origin`, and the canonical repo as `upstream`.
-
----
-
-### 2. Clone MalariAPI to your local machine
-
-On your laptop / WSL / workstation:
+### If you forked:
 
 ```bash
-# If you forked:
 git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI
-
-# Or, if you just want a read-only clone of the canonical repo:
-# git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI
-
 cd ~/MalariAPI
 ```
+
+### If you did not fork:
+
+```bash
+git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
+```
+
+Replace `<your-github-username>` with your actual GitHub username.
+
+## 3. Run the Local Installer
+
+This installer will:
+
+- Install or reuse a Miniconda distribution.
+- Update the base environment using `envs/base.yml`.
+- Add MalariAPI executables to your PATH.
+- Configure git identity for this repository.
+- Add an `upstream` remote if you cloned a fork.
+
+### Recommended command:
+
+```bash
+./tools/install_mapi.sh   --repo-owner "<your-github-username>"   --upstream-owner "A-Crow-Nowhere"   --git-name "Your Name"   --git-email "you@example.edu"
+```
+
+If you cloned the canonical repo directly:
+
+```bash
+./tools/install_mapi.sh   --git-name "Your Name"   --git-email "you@example.edu"
+```
+
+After installation:
+
+```bash
+source ~/.bashrc    # or: source ~/.zshrc
+mapi --help
+```
+
+## 4. Install MalariAPI on Your HPC
+
+From your local clone:
+
+```bash
+cd ~/MalariAPI
+
+./tools/hpc_install rivanna   --remote-user "<your-hpc-username>"   --remote-host "login.hpc.virginia.edu"
+```
+
+Replace `<your-hpc-username>` with your HPC account name.
+
+Test the connection:
+
+```bash
+mapi rivanna status
+```
+
+A valid response confirms successful HPC setup.
+
+## 5. Git Helper Commands in MAPI
+
+MalariAPI provides simple wrappers for common git operations.
+
+### Update your local branch from upstream:
+
+```bash
+mapi git update
+```
+
+### Upload your current branch to your fork:
+
+```bash
+mapi git upload
+```
+
+### Switch or create a branch:
+
+```bash
+mapi git switch feature/new_module
+```
+
+## 6. Next Steps
+
+List available modules and pipelines:
+
+```bash
+mapi list
+```
+
+Create a development branch:
+
+```bash
+git checkout -b feature/<description>
+```
+
+Build any additional Conda environments as needed with MAPI’s environment tools.
+
+## Installation Complete
+
+You now have a fully functional local and HPC installation of MalariAPI.
+Refer to the Contributing section for details on module and pipeline development.
 
 
