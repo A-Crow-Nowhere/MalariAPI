@@ -52,8 +52,11 @@ Pick the box that matches what you did and what you want.
 #### After any of the above
 
 ```bash
-source ~/.bashrc    # or: source ~/.zshrc -- this just refreshes the workspace
-mapi --help
+source ~/.bashrc    # or: source ~/.zshrc -- this just refreshes the workspace.
+mapi tools install_envs  # first time only, use --help flag to see how to grab specific envs. 
+
+
+mapi                   # Lists all availible tools and how to use them
 ```
 
 You are now ready to use or develop MalariAPI.
