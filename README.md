@@ -21,7 +21,11 @@ Below, we outined a streamlined setup process for MalariAPI, covering both local
 Pick the box that matches what you did and what you want.
 
 <p align="center">
-  <a href="/MalariAPI/docs/installOptions_croppted.pdf">Download installation paths (PDF)</a>
+  <img src="MalariAPI/docs/installOptions_croppted.pdf" width="800">
+</p>
+
+<p align="center">
+  <a href="MalariAPI/docs/installOptions_croppted.pdf">Download PDF (copy-paste friendly)</a>
 </p>
 
 ### After any of the above
