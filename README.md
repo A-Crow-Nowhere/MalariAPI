@@ -18,6 +18,16 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
 Below, we outined a streamlined setup process for MalariAPI, covering both local installation and optional HPC configuration.
 
 ## Choose your installation path
+Pick the box that matches what you did and what you want.
+
+<p align="center">
+  <a href="/MalariAPI/docs/installOptions_croppted.pdf">Download installation paths (PDF)</a>
+</p>
+
+### After any of the above
+
+```bash
+source ~/.bash## Choose your installation path
 
 Pick the box that matches what you did and what you want.
 
@@ -115,6 +125,8 @@ cd ~/MalariAPI
 
 ```bash
 source ~/.bashrc    # or: source ~/.zshrc
+mapi --help
+rc    # or: source ~/.zshrc
 mapi --help
 
 
