@@ -13,9 +13,26 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
    ### Helpful scripts
    7. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
 
+
+
 ## Quick Install MalariAPI (MAPI)
 
 Below, we outined a streamlined setup process for MalariAPI, covering both local installation and optional HPC configuration.
+```md
+<ins>Vocab</ins>	
+repo = "Repository" - the centralized github location that contains the code. 
+clone = a copy of an upstream repo.
+branch = a cloned, but developmentally independent version of a repo.
+fork = you can 'fork' a branch - to create a new branch.
+```
+### 1. (Optional) Fork the Repository
+
+If you plan to contribute:
+
+1. Visit: https://github.com/A-Crow-Nowhere/MalariAPI
+2. Select "Fork" to create your personal copy.
+
+This lets you push to your own fork while still pulling updates from the main repository.
 
 ### Choose your installation path
 Pick the box that matches what you did and what you want.
@@ -28,14 +45,12 @@ Pick the box that matches what you did and what you want.
   <a href="docs/installOptions_cropped.pdf">Download PDF (copy-paste friendly)</a>
 </p>
 
-^ If in doubt, or for more novie users, select the first in either column. All features can be added in aftwards by running the installer again; as in these examples.
+> If in doubt, or for more novice users, select the first in either column. All features can be added in aftwards by running the installer again; as in these examples.
 
 #### After any of the above
 
 ```bash
-source ~/.bashrc    # or: source ~/.zshrc
-mapi --help
-rc    # or: source ~/.zshrc
+source ~/.bashrc    # or: source ~/.zshrc -- this just refreshes the workspace
 mapi --help
 ```
 
