@@ -15,7 +15,7 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
 
 
 
-## Quick Install MalariAPI (MAPI)
+## Install MalariAPI (MAPI)
 
 Below, we outined a streamlined setup process for MalariAPI, covering both local installation and optional HPC configuration.
 > <ins>Vocab</ins>\
@@ -35,6 +35,7 @@ This lets you push to your own fork while still pulling updates from the main re
 
 ### Choose your installation path
 Pick the box that matches what you did and what you want.
+> First install will take several minutes. 
 
 <p align="center">
   <img src="docs/installOptions_cropped-1.png" width="11000">
@@ -58,7 +59,7 @@ You are now ready to use or develop MalariAPI.
 
 ## 4. Install MalariAPI on Your HPC (optional)
 
-MAPI supports the use of a High Preformance Cluster while operating out of a local environment. This reduces complexity for new users, while ensuring stable running environments. 
+MAPI supports the use of a High Preformance Cluster while operating out of a local environment. This reduces complexity for new users, while ensuring stable running environments, and facilitating an easier (and customizable) coding experience.
 
 From your local clone:
 
@@ -85,27 +86,24 @@ A valid response confirms successful HPC setup, should look like a single line:
 
 ## 5. Git Helper Commands in MAPI (optional, but recomended) 
 
-Using the MAPI installer automatically wires you in to be able to use github. MAPI provides simple wrappers for common git operations. 
-
-### Update your local branch from upstream (i.e. from main):
+Using the MAPI installer automatically wires you in to be able to use github (If username and email are given). MAPI provides simple wrappers for common git operations. 
 
 ```bash
-mapi git update
+mapi git update  # Update your local branch from upstream (i.e. from main)
+mapi git upload  # Upload your current branch to your fork (i.e. your devloper environment)
+mapi git switch feature/new_module # Switch or create a branch (if you have access to multiple branches)
 ```
 
-### Upload your current branch to your fork (i.e. your devloper environment):
 
+## 6. Build any additional Conda environments as needed with MAPI’s environment tools.
 ```bash
-mapi git upload
+cd ~MalariAPI
+bash ./tools/install_envs    # This will take a while to complete, depending on the number of environments included in your repo's envs/ folder. 
 ```
 
-### Switch or create a branch (if you have access to multiple branches):
 
-```bash
-mapi git switch feature/new_module
-```
 
-## 6. Next Steps
+## 7. Next Steps
 
 List available modules and pipelines:
 
@@ -113,11 +111,7 @@ List available modules and pipelines:
 mapi 
 ```
 
-
-Build any additional Conda environments as needed with MAPI’s environment tools.
-
 ## Installation Complete
-
 You now have a fully functional local and HPC installation of MalariAPI.
 Refer to the Contributing section for details on module and pipeline development.
 
