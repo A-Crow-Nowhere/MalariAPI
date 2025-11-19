@@ -14,9 +14,8 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
    7. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
 
 ## Quick Install MalariAPI (MAPI)
-# Quick Install Guide (Local and HPC)
 
-This document outlines a streamlined setup process for MalariAPI, covering both local installation and HPC configuration.
+Below, we outined a streamlined setup process for MalariAPI, covering both local installation and optional HPC configuration.
 
 ## 1. (Optional) Fork the Repository
 
@@ -26,6 +25,7 @@ If you plan to contribute:
 2. Select "Fork" to create your personal copy.
 
 This lets you push to your own fork while still pulling updates from the main repository.
+^ You can think of a 'fork' as your own personal copy of MAPI that you can do whatever you want with
 
 ## 2. Clone MalariAPI to Your Local Machine
 
@@ -74,43 +74,50 @@ source ~/.bashrc    # or: source ~/.zshrc
 mapi --help
 ```
 
-## 4. Install MalariAPI on Your HPC
+## 4. Install MalariAPI on Your HPC (optional)
+
+MAPI supports the use of a High Preformance Cluster while operating out of a local environment. This reduces complexity for new users, while ensuring stable running environments. 
 
 From your local clone:
 
 ```bash
 cd ~/MalariAPI
 
-./tools/hpc_install rivanna   --remote-user "<your-hpc-username>"   --remote-host "login.hpc.virginia.edu"
+./tools/hpc_install  <the_name_of_your_hpc (or any single word)>  <host_name> <partition> <allocation>
+
+eg:
+
+./tools/hpc_install  <rivanna> <userID@login.hpc.virginia.edu> <standard> <mymalarialab>
+
 ```
-
-Replace `<your-hpc-username>` with your HPC account name.
-
 Test the connection:
 
 ```bash
 mapi rivanna status
 ```
 
-A valid response confirms successful HPC setup.
+A valid response confirms successful HPC setup, should look like a single line:
+```
+'             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)'
+```
 
-## 5. Git Helper Commands in MAPI
+## 5. Git Helper Commands in MAPI (optional, but recomended) 
 
-MalariAPI provides simple wrappers for common git operations.
+Using the MAPI installer automatically wires you in to be able to use github. MAPI provides simple wrappers for common git operations. 
 
-### Update your local branch from upstream:
+### Update your local branch from upstream (i.e. from main):
 
 ```bash
 mapi git update
 ```
 
-### Upload your current branch to your fork:
+### Upload your current branch to your fork (i.e. your devloper environment):
 
 ```bash
 mapi git upload
 ```
 
-### Switch or create a branch:
+### Switch or create a branch (if you have access to multiple branches):
 
 ```bash
 mapi git switch feature/new_module
@@ -121,14 +128,9 @@ mapi git switch feature/new_module
 List available modules and pipelines:
 
 ```bash
-mapi list
+mapi 
 ```
 
-Create a development branch:
-
-```bash
-git checkout -b feature/<description>
-```
 
 Build any additional Conda environments as needed with MAPI’s environment tools.
 
