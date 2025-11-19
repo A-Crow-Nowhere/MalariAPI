@@ -1,95 +1,127 @@
-# 🧬 MalariAPI Setup — Cross-Platform Environment Guide
+# MalariAPI Setup — Cross-Platform Environment Guide
 
-This document walks you through setting up a fully functional environment for **MalariAPI (MAPI)** on **Windows (via WSL + MobaXterm)** or **macOS/Linux (native shell)**.  
-By the end, you’ll have:
-- a working Ubuntu or macOS terminal,
-- Miniconda installed in `~/tools/miniconda3`,
-- base dependencies installed, and  
-- folders ready for the MAPI framework.
+This document walks you through setting up a fully functional environment for MalariAPI (MAPI) on Windows (via WSL + MobaXterm), macOS (via UTM Ubuntu VM), or Linux. By the end, you will have:
+- a working Ubuntu Linux shell,
+- Miniconda installed in ~/MalariAPI/tools/miniconda3,
+- base dependencies installed, and
+- directories ready for the MAPI framework.
 
----
+## Requirements
 
-## 🧰 Requirements
-
-- **Windows 10 (v2004+) / Windows 11** or **macOS 11+**
-- Admin access
+- Windows 10 (v2004+) / Windows 11 OR macOS 11+ OR Linux
+- Administrator access
 - Internet connection
+- Approximately 20–40 GB of free disk space
 
----
+# Option A — Windows (WSL + MobaXterm)
 
-## 🪟 Option A — Windows (WSL + MobaXterm)
+## 1. Enable WSL and Install Ubuntu
 
-### 1️⃣ Enable WSL and Install Ubuntu
+Open PowerShell as an administrator and run:
 
-Open **PowerShell as Administrator** and run:
-
-```powershell
+```
 wsl --install
 ```
 
-This enables WSL 2 and installs the latest Ubuntu LTS (e.g. 22.04).  
-If you already have WSL, you can manually install Ubuntu with:
+This installs WSL2 and the latest Ubuntu LTS. If you prefer to specify Ubuntu manually:
 
-```powershell
+```
 wsl --install -d Ubuntu
 ```
 
 Reboot if prompted.
 
-Launch Ubuntu for the first time:
+Launch Ubuntu:
 
-```powershell
+```
 wsl
 ```
 
-Follow the prompt to create a username and password.
+Set up your Linux username and password.
 
----
+## 2. Install MobaXterm (optional but recommended)
 
-### 2️⃣ Install MobaXterm (optional but recommended)
+Download the installer from:
+https://mobaxterm.mobatek.net/download.html
 
-Download from [mobaxterm.mobatek.net/download.html](https://mobaxterm.mobatek.net/download.html).  
-Use the **Installer Edition** → **Session → WSL → Ubuntu**.  
-Pick a startup directory that’s easy to reach from File Explorer (e.g. `/home/<user>/MalariAPI`).
+Inside MobaXterm:
+- Session → WSL → Ubuntu
+- Choose a convenient startup directory such as /home/<user>/MalariAPI
 
----
+This provides improved terminal features, a GUI file browser, and easier copy/paste.
 
-### 3️⃣ Enable SSH (only if you want to remote into WSL)
+## 3. Enable SSH (optional)
 
-```bash
+```
 sudo service ssh start
 ```
 
----
+# Option B — macOS (via UTM Ubuntu VM)
 
-## 🍏 Option B — macOS or Linux (Native Terminal)
+macOS cannot run Linux natively like Windows WSL, but UTM provides a lightweight Ubuntu ARM virtual machine that behaves identically to Linux. This is the recommended MAPI workflow on macOS.
 
-### 1️⃣ Install Command Line Tools and Homebrew (macOS only)
+## 1. Install UTM
 
-```bash
-xcode-select --install
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install git wget curl
+Download from:
+https://mac.getutm.app/
+
+Create a new virtual machine:
+- Virtualize → Linux
+- Select an Ubuntu ARM ISO (Ubuntu 22.04 or 24.04 ARM64)
+
+ARM Ubuntu images can be downloaded from:
+https://ubuntu.com/download/server/arm
+
+## 2. Recommended VM Configuration
+
+- Memory: 4–8 GB
+- CPU cores: 4–8
+- Disk: 40–80 GB
+- Network: Shared (NAT)
+
+Install Ubuntu and create a username and password.
+
+## 3. Update Ubuntu inside the VM
+
 ```
-
-*(Linux users can skip this; `apt`/`dnf`/`yum` will suffice.)*
-
----
-
-## ⚙️ Step 2 — Configure MalariAPI Environment
-
-All following commands run **inside your Linux or macOS shell** (either Ubuntu WSL or native).
-
-### 🔧 1. Update System and Install Core Tools
-
-```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y build-essential git curl unzip htop openssh-server micro samtools bedtools
 ```
 
-*(macOS users with Homebrew can instead run  
-`brew install git curl htop samtools bedtools micro`)*
+## 4. Install recommended tools
 
+```
+sudo apt install -y build-essential git curl wget unzip htop openssh-server micro samtools bedtools
+```
 
-✅ **Basic framework of MalariAPI is now set up!**  
-Proceed to the next guide to install the **MAPI repo**, link the `bin/mapi` launcher, and start adding tools and pipelines.
+You may now proceed exactly as you would on native Linux.
+
+# Option C — Linux (Native)
+
+If you are already using a Linux distribution, ensure the required tools are present:
+
+```
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y build-essential git curl wget unzip htop openssh-server micro samtools bedtools
+```
+
+Adjust to your distribution’s package manager as necessary.
+
+# Step 2 — Configure the MalariAPI Environment
+
+Run the following inside your Linux shell (WSL Ubuntu, UTM Ubuntu, or native Linux).
+
+## 1. Install core tools
+
+```
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y     build-essential git curl wget unzip htop openssh-server micro     samtools bedtools
+```
+
+At this point, your system is ready for the MAPI installer. The next steps include:
+- cloning the MalariAPI repository (your fork),
+- running the one-shot installer at tools/install_mapi.sh,
+- enabling the mapi command in your PATH,
+- configuring the base environment,
+- optionally configuring HPC support,
+- and beginning module or pipeline development.
+
