@@ -18,8 +18,8 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
 
 These steps assume:
 
-- You have **git**, **SSH**, and either **curl** or **wget** installed.   # See [initial setup](docs/setup_MalariAPI.md) 
-- You have access to an HPC and a valid username there.                   # Optional, see [HPC setup](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/HPC_Guide.md)
+- You have **git**, **SSH**, and either **curl** or **wget** installed.   << See [initial setup](docs/setup_MalariAPI.md) 
+- You have access to an HPC and a valid username there.                   << Optional, see [HPC setup](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/HPC_Guide.md)
 
 > 🧠 If you're new to git: just follow the commands as written, replacing the
 > placeholders (`<your-github-username>`, `<your-hpc-username>`, etc.).
