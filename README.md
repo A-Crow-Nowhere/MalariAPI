@@ -50,35 +50,6 @@ git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI
 # git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI
 
 cd ~/MalariAPI
-
-
-```MalariAPI/
-├── bin
-│   ├── mapi
-│   ├── modules
-│   │   ├── easteregg.sh
-│   │   ├── summarize_bam.sh
-│   │   └── yaml
-│   ├── packages
-│   ├── pipelines
-│   │   └── yaml
-│   ├── scripts
-│   │   ├── bed_to_igv.sh
-│   │   ├── bed_to_vcf.sh
-│   │   └── vcf_to_bed.sh
-│   └── templates
-│       ├── module_template.sh
-│       ├── module_template.yml
-│       ├── package_wrapper_template
-│       ├── pipeline_template.sh
-│       └── pipeline_template.yml
-├── envs
-│   └── base.yml
-├── genomes
-├── package_depot
-└── tools
-    ├── gen_env.sh
-    ├── install_mapi.sh
-    └── validate.sh
-
 ```
+
+
