@@ -17,90 +17,20 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
 
 Below, we outined a streamlined setup process for MalariAPI, covering both local installation and optional HPC configuration.
 
-## 1. (Optional) Fork the Repository
+## Choose your installation path
 
-If you plan to contribute:
+Pick the cell that matches what you did and what you want.
 
-1. Visit: https://github.com/A-Crow-Nowhere/MalariAPI
-2. Select "Fork" to create your personal copy.
+| I do NOT want to develop (just use MalariAPI) | I DO want to develop (modify code / contribute) |
+|-----------------------------------------------|--------------------------------------------------|
+| **Use the main repo, no development**<br><br>Clone the canonical repo and install without git identity.<br><br>`git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI && cd ~/MalariAPI && ./tools/install_mapi.sh` | **Develop on the main repo**<br><br>Clone the canonical repo and install with a local git identity.<br><br>`git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI && cd ~/MalariAPI && ./tools/install_mapi.sh --git-name "Your Name" --git-email you@example.edu` |
+| **Use your own fork, no development**<br><br>You made a fork but just want to run it locally.<br><br>`git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI && cd ~/MalariAPI && ./tools/install_mapi.sh` | **Develop on your own fork**<br><br>You forked on GitHub and want to push branches and open pull requests.<br><br>`git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI && cd ~/MalariAPI && ./tools/install_mapi.sh --repo-owner "<your-github-username>" --upstream-owner "A-Crow-Nowhere" --git-name "Your Name" --git-email you@example.edu` |
+| **Use someone else's repo, no development**<br><br>You cloned another person’s MalariAPI repo but only want to use it.<br><br>`git clone git@github.com:<other-owner>/MalariAPI.git ~/MalariAPI && cd ~/MalariAPI && ./tools/install_mapi.sh` | **Develop on someone else's repo**<br><br>You cloned another person’s MalariAPI repo and want to work there and track the canonical upstream.<br><br>`git clone git@github.com:<other-owner>/MalariAPI.git ~/MalariAPI && cd ~/MalariAPI && ./tools/install_mapi.sh --repo-owner "<other-owner>" --upstream-owner "A-Crow-Nowhere" --git-name "Your Name" --git-email you@example.edu` |
 
-This lets you push to your own fork while still pulling updates from the main repository.
-^ You can think of a 'fork' as your own personal copy of MAPI that you can do whatever you want with
-
-## Installation Path Selection
-
-This guide helps you choose the correct installation commands depending on whether you plan to develop MalariAPI or simply use it.
-
----
-
-### User Installation (No Development)
-
-Select one of the following based on how you obtained MalariAPI.
-
-| Case | Description | Commands |
-|------|-------------|----------|
-| **Case 2** | Clone the main repo and just use it |```bash
-git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI
-cd ~/MalariAPI
-
-./tools/install_mapi.sh
-``` |
-| **Case 4** | Forked MalariAPI, cloned your fork, but not developing |```bash
-git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI
-cd ~/MalariAPI
-
-./tools/install_mapi.sh
-``` |
-| **Case 6** | Cloned someone else's MalariAPI repo and just using it |```bash
-git clone git@github.com:<other-owner>/MalariAPI.git ~/MalariAPI
-cd ~/MalariAPI
-
-./tools/install_mapi.sh
-``` 
-
----
-
-### Developer Installation (Planning to Modify or Contribute)
-
-Select one of the following if you intend to write code, change modules, or submit PRs.
-
-| Case | Description | Commands |
-|------|-------------|----------|
-| **Case 1** | Clone the main repo and develop |```bash
-git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI
-cd ~/MalariAPI
-
-./tools/install_mapi.sh \
-  --git-name "Your Name" \
-  --git-email you@example.edu
-``` |
-| **Case 3** | Fork on GitHub, clone your fork, and develop |```bash
-git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI
-cd ~/MalariAPI
-
-./tools/install_mapi.sh \
-  --repo-owner "<your-github-username>" \
-  --upstream-owner "A-Crow-Nowhere" \
-  --git-name "Your Name" \
-  --git-email you@example.edu
-``` |
-| **Case 5** | Clone someone else's repo and develop |```bash
-git clone git@github.com:<other-owner>/MalariAPI.git ~/MalariAPI
-cd ~/MalariAPI
-
-./tools/install_mapi.sh \
-  --repo-owner "<other-owner>" \
-  --upstream-owner "A-Crow-Nowhere" \
-  --git-name "Your Name" \
-  --git-email you@example.edu
-``` |
-
----
-
-# Final Step for All Cases
+### After any of the above
 
 ```bash
-source ~/.bashrc     # or: source ~/.zshrc
+source ~/.bashrc    # or: source ~/.zshrc
 mapi --help
 ```
 
