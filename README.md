@@ -27,52 +27,85 @@ If you plan to contribute:
 This lets you push to your own fork while still pulling updates from the main repository.
 ^ You can think of a 'fork' as your own personal copy of MAPI that you can do whatever you want with
 
-## 2. Clone MalariAPI to Your Local Machine
+## Installation Path Selection
 
-### If you forked:
+This guide helps you choose the correct installation commands depending on whether you plan to develop MalariAPI or simply use it.
 
-```bash
-git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI
-cd ~/MalariAPI
-```
+---
 
-### If you did not fork:
+### User Installation (No Development)
 
-```bash
+Select one of the following based on how you obtained MalariAPI.
+
+| Case | Description | Commands |
+|------|-------------|----------|
+| **Case 2** | Clone the main repo and just use it |```bash
 git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI
 cd ~/MalariAPI
-```
 
-Replace `<your-github-username>` with your actual GitHub username.
+./tools/install_mapi.sh
+``` |
+| **Case 4** | Forked MalariAPI, cloned your fork, but not developing |```bash
+git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
 
-## 3. Run the Local Installer
+./tools/install_mapi.sh
+``` |
+| **Case 6** | Cloned someone else's MalariAPI repo and just using it |```bash
+git clone git@github.com:<other-owner>/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
 
-This installer will:
+./tools/install_mapi.sh
+``` 
 
-- Install or reuse a Miniconda distribution.
-- Update the base environment using `envs/base.yml`.
-- Add MalariAPI executables to your PATH.
-- Configure git identity for this repository.
-- Add an `upstream` remote if you cloned a fork.
+---
 
-### Recommended command:
+### Developer Installation (Planning to Modify or Contribute)
+
+Select one of the following if you intend to write code, change modules, or submit PRs.
+
+| Case | Description | Commands |
+|------|-------------|----------|
+| **Case 1** | Clone the main repo and develop |```bash
+git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
+
+./tools/install_mapi.sh \
+  --git-name "Your Name" \
+  --git-email you@example.edu
+``` |
+| **Case 3** | Fork on GitHub, clone your fork, and develop |```bash
+git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
+
+./tools/install_mapi.sh \
+  --repo-owner "<your-github-username>" \
+  --upstream-owner "A-Crow-Nowhere" \
+  --git-name "Your Name" \
+  --git-email you@example.edu
+``` |
+| **Case 5** | Clone someone else's repo and develop |```bash
+git clone git@github.com:<other-owner>/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
+
+./tools/install_mapi.sh \
+  --repo-owner "<other-owner>" \
+  --upstream-owner "A-Crow-Nowhere" \
+  --git-name "Your Name" \
+  --git-email you@example.edu
+``` |
+
+---
+
+# Final Step for All Cases
 
 ```bash
-./tools/install_mapi.sh   --repo-owner "<your-github-username>"   --upstream-owner "A-Crow-Nowhere"   --git-name "Your Name"   --git-email "you@example.edu"
-```
-
-If you cloned the canonical repo directly:
-
-```bash
-./tools/install_mapi.sh   --git-name "Your Name"   --git-email "you@example.edu"
-```
-
-After installation:
-
-```bash
-source ~/.bashrc    # or: source ~/.zshrc
+source ~/.bashrc     # or: source ~/.zshrc
 mapi --help
 ```
+
+You are now ready to use or develop MalariAPI.
+
 
 ## 4. Install MalariAPI on Your HPC (optional)
 
