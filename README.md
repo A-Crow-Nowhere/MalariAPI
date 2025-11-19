@@ -19,10 +19,10 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
 
 Below, we outined a streamlined setup process for MalariAPI, covering both local installation and optional HPC configuration.
 > <ins>Vocab</ins>\
-> repo = "Repository" - the centralized github location that contains the code.\n
+> repo = "Repository" - the centralized github location that contains the code.\
 > clone = a copy of an upstream repo.\
 > branch = a cloned, but developmentally independent version of a repo.\
-> fork = you can 'fork' a branch - to create a new branch.\
+> fork = you can 'fork' a branch - to create a new branch.
 
 ### 1. (Optional) Fork the Repository
 
