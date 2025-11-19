@@ -22,10 +22,49 @@ Below, we outined a streamlined setup process for MalariAPI, covering both local
 Pick the cell that matches what you did and what you want.
 
 | I do NOT want to develop (just use MalariAPI) | I DO want to develop (modify code / contribute) |
-|:---------------------------------------------:|:------------------------------------------------:|
-| <h4><u>Use the main repo, no development</u></h4><br>Clone the canonical repo and install without git identity.<br><br>```bash\ngit clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI\ncd ~/MalariAPI\n\n./tools/install_mapi.sh\n``` | <h4><u>Develop on the main repo</u></h4><br>Clone the canonical repo and install with a local git identity.<br><br>```bash\ngit clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI\ncd ~/MalariAPI\n\n./tools/install_mapi.sh --git-name "Your Name" --git-email you@example.edu\n``` |
-| <h4><u>Use your own fork, no development</u></h4><br>You created a fork on GitHub but just want to run it locally.<br><br>```bash\ngit clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI\ncd ~/MalariAPI\n\n./tools/install_mapi.sh\n``` | <h4><u>Develop on your own fork</u></h4><br>You forked on GitHub and want to push branches and open pull requests.<br><br>```bash\ngit clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI\ncd ~/MalariAPI\n\n./tools/install_mapi.sh \\\n  --repo-owner "<your-github-username>" \\\n  --upstream-owner "A-Crow-Nowhere" \\\n  --git-name "Your Name" \\\n  --git-email you@example.edu\n``` |
-| <h4><u>Use someone else's repo, no development</u></h4><br>You cloned another person’s MalariAPI repo and only want to use it.<br><br>```bash\ngit clone git@github.com:<other-owner>/MalariAPI.git ~/MalariAPI\ncd ~/MalariAPI\n\n./tools/install_mapi.sh\n``` | <h4><u>Develop on someone else's repo</u></h4><br>You cloned another person’s MalariAPI repo and want to work there while tracking the canonical upstream.<br><br>```bash\ngit clone git@github.com:<other-owner>/MalariAPI.git ~/MalariAPI\ncd ~/MalariAPI\n\n./tools/install_mapi.sh \\\n  --repo-owner "<other-owner>" \\\n  --upstream-owner "A-Crow-Nowhere" \\\n  --git-name "Your Name" \\\n  --git-email you@example.edu\n``` |
+|-----------------------------------------------|--------------------------------------------------|
+| <div align="center"><strong><u>Use the main repo, no development</u></strong><br><br>Clone the canonical repo and install without git identity.</div><br>```bash
+git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
+
+./tools/install_mapi.sh
+``` | <div align="center"><strong><u>Develop on the main repo</u></strong><br><br>Clone the canonical repo and install with a local git identity.</div><br>```bash
+git clone https://github.com/A-Crow-Nowhere/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
+
+./tools/install_mapi.sh --git-name "Your Name" --git-email you@example.edu
+``` |
+| <div align="center"><strong><u>Use your own fork, no development</u></strong><br><br>You created a fork on GitHub but just want to run it locally.</div><br>```bash
+git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
+
+./tools/install_mapi.sh
+``` | <div align="center"><strong><u>Develop on your own fork</u></strong><br><br>You forked on GitHub and want to push branches and open pull requests.</div><br>```bash
+git clone git@github.com:<your-github-username>/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
+
+./tools/install_mapi.sh \
+  --repo-owner "<your-github-username>" \
+  --upstream-owner "A-Crow-Nowhere" \
+  --git-name "Your Name" \
+  --git-email you@example.edu
+``` |
+| <div align="center"><strong><u>Use someone else's repo, no development</u></strong><br><br>You cloned another person’s MalariAPI repo and only want to use it.</div><br>```bash
+git clone git@github.com:<other-owner>/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
+
+./tools/install_mapi.sh
+``` | <div align="center"><strong><u>Develop on someone else's repo</u></strong><br><br>You cloned another person’s MalariAPI repo and want to work there while tracking the canonical upstream.</div><br>```bash
+git clone git@github.com:<other-owner>/MalariAPI.git ~/MalariAPI
+cd ~/MalariAPI
+
+./tools/install_mapi.sh \
+  --repo-owner "<other-owner>" \
+  --upstream-owner "A-Crow-Nowhere" \
+  --git-name "Your Name" \
+  --git-email you@example.edu
+``` |
+
 
 
 ### After any of the above
