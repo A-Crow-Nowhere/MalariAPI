@@ -1,5 +1,0 @@
-#!/home/a-crow-nowhere/MalariAPI/envs/summarize_bam/bin/python3.13
-
-from idlelib.pyshell import main
-if __name__ == '__main__':
-    main()
