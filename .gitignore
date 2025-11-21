@@ -5,8 +5,6 @@ Thumbs.db
 *.swo
 *.tmp
 *.log
-*.md
-*.MD
 
 # Python/R caches
 __pycache__/
@@ -19,7 +17,6 @@ __pycache__/
 scratch/
 envs/*           # your per-project env YAMLs are fine; but avoid committing whole conda env dirs
 tools/miniconda3/
-docs/
 projects/
 .gen/           # any generated artifacts if you have such a dir
 *.bak
