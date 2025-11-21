@@ -2,19 +2,77 @@
 set -Eeuo pipefail
 [[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
 
-# Resolve MAPI root (prefer env from mapi.env)
+FORCE_MODE="none"   # none | lease | force
+
+# ------------------------------------------------------------
+# Parse flags
+# ------------------------------------------------------------
+while (( "$#" )); do
+  case "$1" in
+    --force-with-lease)
+      FORCE_MODE="lease"
+      shift
+      ;;
+    --force)
+      FORCE_MODE="force"
+      shift
+      ;;
+    --help|-h)
+      cat <<EOF
+Usage: mapi git upload [--force-with-lease | --force] [commit message ...]
+
+Without flags:
+  - Stages all changes (git add -A)
+  - Commits with the given message (or an auto-generated one)
+  - Pushes the current branch:
+      * If it has an upstream, uses 'git push'
+      * If not, uses 'git push -u origin <branch>'
+
+With --force-with-lease:
+  - Same as above, but uses:
+      git push --force-with-lease
+    (or git push --force-with-lease -u origin <branch> if no upstream)
+
+With --force:
+  - Prints a big warning about rewriting remote history
+  - Requires you to type YES (all caps) to proceed
+  - Then uses:
+      git push --force
+    (or git push --force -u origin <branch> if no upstream)
+
+WARNING: --force / --force-with-lease can rewrite remote history.
+EOF
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      # first non-flag starts the commit message
+      break
+      ;;
+  esac
+done
+
+# ------------------------------------------------------------
+# Resolve MAPI root and ensure we're in a repo
+# ------------------------------------------------------------
 MAPI_ROOT="${MAPI_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$MAPI_ROOT"
 
 echo "[git-upload] MAPI_ROOT=$MAPI_ROOT"
-echo "[git-upload] repo: $(git rev-parse --show-toplevel 2>/dev/null || echo 'NOT A GIT REPO')"
-
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "[git-upload] ERROR: $MAPI_ROOT is not a git repository."
   exit 1
 fi
 
+REPO_TOP=$(git rev-parse --show-toplevel 2>/dev/null || echo "UNKNOWN")
+echo "[git-upload] repo: $REPO_TOP"
+
+# ------------------------------------------------------------
 # One-time: set user.name / user.email from env if provided and not already set
+# ------------------------------------------------------------
 if [[ -n "${GIT_USER_NAME:-}" ]]; then
   if ! git config user.name >/dev/null 2>&1; then
     echo "[git-upload] setting git user.name to '$GIT_USER_NAME'"
@@ -29,16 +87,19 @@ if [[ -n "${GIT_USER_EMAIL:-}" ]]; then
   fi
 fi
 
-# Commit message: either args -> message, or auto-generated
+# ------------------------------------------------------------
+# Determine commit message
+# ------------------------------------------------------------
 if [[ "$#" -gt 0 ]]; then
   COMMIT_MSG="$*"
 else
   COMMIT_MSG="mapi: auto-commit $(date +'%Y-%m-%d %H:%M:%S')"
 fi
-
 echo "[git-upload] using commit message: '$COMMIT_MSG'"
 
-# Make sure there is actually something to commit
+# ------------------------------------------------------------
+# Check for changes
+# ------------------------------------------------------------
 CHANGES="$(git status --porcelain)"
 if [[ -z "$CHANGES" ]]; then
   echo "[git-upload] nothing to commit; working tree clean."
@@ -60,23 +121,81 @@ fi
 echo "[git-upload] committing..."
 git commit -m "$COMMIT_MSG"
 
-# Figure out current branch
+# ------------------------------------------------------------
+# Decide how to push based on current branch & upstream
+# ------------------------------------------------------------
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 echo "[git-upload] current branch: $CURRENT_BRANCH"
 
-# Check if this branch already has an upstream
 UPSTREAM=""
 if git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
   UPSTREAM="$(git rev-parse --abbrev-ref '@{u}')"
 fi
 
-if [[ -z "$UPSTREAM" ]]; then
-  echo "[git-upload] no upstream set for '$CURRENT_BRANCH'; pushing with -u origin $CURRENT_BRANCH"
-  GIT_TERMINAL_PROMPT=1 git push -u origin "$CURRENT_BRANCH"
+if [[ -n "$UPSTREAM" ]]; then
+  TARGET_DESC="$UPSTREAM"
 else
-  echo "[git-upload] upstream is '$UPSTREAM'; pushing with plain git push"
-  GIT_TERMINAL_PROMPT=1 git push
+  TARGET_DESC="origin/$CURRENT_BRANCH (will be created if missing)"
 fi
 
-echo "[git-upload] done."
+# ------------------------------------------------------------
+# Execute the appropriate push
+# ------------------------------------------------------------
+case "$FORCE_MODE" in
+  none)
+    if [[ -z "$UPSTREAM" ]]; then
+      echo "[git-upload] no upstream set; pushing with: git push -u origin $CURRENT_BRANCH"
+      GIT_TERMINAL_PROMPT=1 git push -u origin "$CURRENT_BRANCH"
+    else
+      echo "[git-upload] upstream is '$UPSTREAM'; pushing with plain git push"
+      GIT_TERMINAL_PROMPT=1 git push
+    fi
+    ;;
+  lease)
+    echo "[git-upload] FORCE-WITH-LEASE: pushing to $TARGET_DESC"
+    if [[ -z "$UPSTREAM" ]]; then
+      echo "[git-upload] running: git push --force-with-lease -u origin $CURRENT_BRANCH"
+      GIT_TERMINAL_PROMPT=1 git push --force-with-lease -u origin "$CURRENT_BRANCH"
+    else
+      echo "[git-upload] running: git push --force-with-lease"
+      GIT_TERMINAL_PROMPT=1 git push --force-with-lease
+    fi
+    ;;
+  force)
+    CURRENT_HEAD="$(git rev-parse --short HEAD 2>/dev/null || echo 'NO_COMMIT')"
+    echo
+    echo "===================================================================="
+    echo "[git-upload] HARD FORCE PUSH WARNING"
+    echo
+    echo "  You are about to FORCE PUSH branch '$CURRENT_BRANCH' to:"
+    echo "      $TARGET_DESC"
+    echo
+    echo "  This will REWRITE REMOTE HISTORY for that branch."
+    echo "  Any commits that currently exist on the remote but are not"
+    echo "  in your local history at HEAD=$CURRENT_HEAD will be LOST from"
+    echo "  the remote branch."
+    echo
+    echo "  This is effectively making your local branch the new ground truth"
+    echo "  for that remote branch."
+    echo
+    echo "  This CANNOT be undone with normal git commands."
+    echo "===================================================================="
+    echo
 
+    read -r -p "[git-upload] Type YES (all caps) to proceed with force push, or anything else to abort: " ANSWER
+    if [[ "$ANSWER" != "YES" ]]; then
+      echo "[git-upload] Aborted. No force push was performed."
+      exit 1
+    fi
+
+    if [[ -z "$UPSTREAM" ]]; then
+      echo "[git-upload] running: git push --force -u origin $CURRENT_BRANCH"
+      GIT_TERMINAL_PROMPT=1 git push --force -u origin "$CURRENT_BRANCH"
+    else
+      echo "[git-upload] running: git push --force"
+      GIT_TERMINAL_PROMPT=1 git push --force
+    fi
+    ;;
+esac
+
+echo "[git-upload] done."
