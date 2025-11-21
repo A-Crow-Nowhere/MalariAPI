@@ -403,7 +403,7 @@ EOF
       [[ -d "$d" ]] || continue
       bn="$(basename "$d")"
       case "$bn" in
-        base|yaml|misc|templates|hpc_templates|scripts|bin|_*|miniconda3)
+        base|yaml|misc|templates|git|hpc_templates|scripts|bin|_*|miniconda3)
           continue
           ;;
       esac
@@ -434,7 +434,7 @@ if [[ $# -eq 1 && -d "$TOOLS_DIR/$1" ]]; then
     base|yaml|misc|templates|hpc_templates|scripts|bin|_*|miniconda3)
       ;; # fall through to unknown command
     *)
-      echo "HPC '$1' tools:"
+      echo "'$1' tools:"
       for f in "$TOOLS_DIR/$1"/*; do
         [[ -x "$f" ]] || continue
         bn="$(basename "$f")"

@@ -93,30 +93,69 @@ if ! have git; then
   exit 1
 fi
 
-# Normalize ROOT
-ROOT="$(readlink -f "$ROOT" 2>/dev/null || python3 - <<PY
-import os,sys
-print(os.path.abspath(sys.argv[1]))
-PY
-"$ROOT")"
+# Normalize ROOT (portable, no weird heredoc side effects)
+if ROOT="$(cd "$ROOT" 2>/dev/null && pwd)"; then
+  :
+else
+  say "!! Could not resolve ROOT directory from '$ROOT'"
+  exit 1
+fi
+
+# ----- Shell rc detection + PATH helpers --------------------------------------
+
+detect_shell_rc() {
+  local shell_rc=""
+
+  # 1) Trust \$SHELL if present
+  case "${SHELL:-}" in
+    *bash) shell_rc="$HOME/.bashrc" ;;
+    *zsh)  shell_rc="$HOME/.zshrc" ;;
+  esac
+
+  # 2) Fallback: inspect the running shell
+  if [[ -z "$shell_rc" ]]; then
+    local comm
+    comm="$(ps -p $$ -o comm= 2>/dev/null || echo "")"
+    case "$comm" in
+      bash) shell_rc="$HOME/.bashrc" ;;
+      zsh)  shell_rc="$HOME/.zshrc" ;;
+    esac
+  fi
+
+  # 3) Last resort: default to bashrc (never a directory)
+  [[ -n "$shell_rc" ]] || shell_rc="$HOME/.bashrc"
+
+  printf '%s\n' "$shell_rc"
+}
 
 add_path_line(){
   local rc="$1"
   local line="export PATH=\"$ROOT/bin:$ROOT/bin/scripts:\$PATH\""
-  [[ -f "$rc" ]] || return 0
-  grep -Fq "$ROOT/bin" "$rc" || {
+
+  # Only proceed if rc is a regular file (not dir, not empty)
+  if [[ -z "${rc:-}" ]] || [[ ! -f "$rc" ]] || [[ -d "$rc" ]]; then
+    return 0
+  fi
+
+  if ! grep -Fq "$ROOT/bin" "$rc"; then
     printf '\n# MalariAPI executables\n%s\n' "$line" >> "$rc"
-  }
+  fi
 }
 
 add_conda_init_line() {
   local rc="$1"
-  [[ -f "$rc" ]] || return 0
+
+  # rc must be a regular file
+  if [[ -z "${rc:-}" ]] || [[ ! -f "$rc" ]] || [[ -d "$rc" ]]; then
+    return 0
+  fi
+
   [[ -n "$MINICONDA_HOME" ]] || return 0
+
   local init="source \"$MINICONDA_HOME/etc/profile.d/conda.sh\""
-  grep -Fq "$MINICONDA_HOME/etc/profile.d/conda.sh" "$rc" || {
+  if ! grep -Fq "$MINICONDA_HOME/etc/profile.d/conda.sh" "$rc"; then
     printf '\n# MalariAPI Miniconda init\n%s\n' "$init" >> "$rc"
-  }
+  fi
 }
 
 configure_git_repo() {
@@ -240,8 +279,13 @@ fi
 
 # --- 4) PATH -------------------------------------------------------------------
 say "==> Ensuring MalariAPI bin paths are on your PATH"
+
+SHELL_RC="$(detect_shell_rc)"
+add_path_line "$SHELL_RC"
+# Also attempt to update both common rc files if they exist (harmless if not)
 add_path_line "$HOME/.bashrc"
 add_path_line "$HOME/.zshrc"
+
 export PATH="$ROOT/bin:$ROOT/bin/scripts:$PATH"
 
 # --- 5) Miniconda / base env ---------------------------------------------------
@@ -264,6 +308,10 @@ fi
 
 # --- 6) Post-install guidance --------------------------------------------------
 cat <<'NOTE'
+
+chmod +x ~/MalariAPI/tools/git/update
+chmod +x ~/MalariAPI/tools/git/upload
+chmod +x ~/MalariAPI/tools/git/switch
 
 ==> Initial MAPI install complete.
 

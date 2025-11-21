@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$HOME/MalariAPI/tools/hpc_lib"
+
+HPC="${MAPI_HPC:-rivanna}"
+load_hpc "$HPC"
+ensure_key_login
+
+hpc_ssh 'squeue -u "$USER" -o "%.18i %.24j %.10T %.10M %.6D %.9P %R"'

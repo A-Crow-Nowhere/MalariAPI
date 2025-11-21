@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
+
+source "$HOME/MalariAPI/tools/hpc_lib"
+
+# Figure out HPC from script dir, but allow override
+SCRIPT_DIR="$(dirname "$0")"
+HPC_NAME="$(basename "$SCRIPT_DIR")"
+HPC="${MAPI_HPC:-$HPC_NAME}"
+
+WHICH="out"   # 'out' or 'err'
+NAME=""
+JID=""
+LATEST=0
+
+usage() {
+  cat <<EOF
+Usage:
+  mapi ${HPC} look --name NAME --jobid JOBID [--out|--err]
+  mapi ${HPC} look [--latest] [--out|--err]
+
+Follow the Slurm log for a MAPI-submitted job.
+
+Options:
+  --name NAME      Job name used at submission (for explicit lookup).
+  --jobid JOBID    Slurm job ID (for explicit lookup).
+  --out            Follow the .out log (default).
+  --err            Follow the .err log.
+  --latest         Follow the most recently updated log of the chosen type.
+                   If neither --name/--jobid nor --latest are given, the
+                   default is to follow the latest .out (or .err if specified).
+  -h, --help       Show this help message and exit.
+
+Examples:
+  # Explicit job lookup
+  mapi ${HPC} look --name myjob --jobid 123456
+  mapi ${HPC} look --name myjob --jobid 123456 --err
+
+  # Latest logs (most recent job):
+  mapi ${HPC} look
+  mapi ${HPC} look --err
+  mapi ${HPC} look --latest --out
+EOF
+}
+
+# Parse CLI
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --err)   WHICH="err"; shift ;;
+    --out)   WHICH="out"; shift ;;
+    --name)  NAME="$2"; shift 2 ;;
+    --jobid) JID="$2"; shift 2 ;;
+    --latest) LATEST=1; shift ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      # No positional args expected; break so we can error below if needed
+      break
+      ;;
+  esac
+done
+
+load_hpc "$HPC"
+ensure_key_login
+
+follow_explicit() {
+  local which="$1" name="$2" jid="$3"
+  if [[ -z "$name" || -z "$jid" ]]; then
+    echo "Error: --name and --jobid are both required for explicit lookup." >&2
+    usage >&2
+    exit 2
+  fi
+
+  # tail_log_path is defined in hpc_lib and knows about the log layout
+  local log
+  log="$(tail_log_path "$name" "$jid" "$which")"
+
+  if [[ -z "$log" ]]; then
+    echo "[mapi] Could not resolve log path for name='$name', jobid='$jid', which='$which'." >&2
+    exit 1
+  fi
+
+  echo "[mapi] Following $log on ${HPC}..." >&2
+  # Use the helper so SSH_OPTS / HOST are centralized
+  hpc_ssh tail -n +1 -f "$log"
+}
+
+follow_latest() {
+  local which="$1"
+  local ext=".$which"
+
+  # Run a small script remotely to find and follow the latest log
+  hpc_ssh bash -lc "
+set -euo pipefail
+DIR=\"\${MAPI_LOG_DIR:-/scratch/\$(whoami)/mapi_logs}\"
+
+if [[ ! -d \"\$DIR\" ]]; then
+  echo \"[mapi] No log directory found at \$DIR\" >&2
+  exit 1
+fi
+
+cd \"\$DIR\"
+
+latest=\$(ls -1t *$ext 2>/dev/null | head -n1 || true)
+if [[ -z \"\$latest\" ]]; then
+  echo \"[mapi] No *$ext logs found in \$DIR\" >&2
+  exit 1
+fi
+
+echo \"[mapi] Following \$DIR/\$latest\" >&2
+tail -n +1 -f \"\$latest\"
+"
+}
+
+# Decide behavior:
+# 1) If name+jobid provided -> explicit log.
+# 2) Else -> follow latest (default), optionally gated by --latest.
+if [[ -n "$NAME" || -n "$JID" ]]; then
+  # If either is missing, follow_explicit will error with usage
+  follow_explicit "$WHICH" "$NAME" "$JID"
+else
+  # No explicit job → use latest behavior (default)
+  follow_latest "$WHICH"
+fi

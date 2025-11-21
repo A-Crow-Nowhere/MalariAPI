@@ -1,42 +1,66 @@
 #!/usr/bin/env bash
-# tools/git/upload
-# Usage: mapi git upload
-# - Pushes the current branch to origin, setting upstream if needed.
+set -Eeuo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
 
-set -euo pipefail
-
-say(){ printf '%s\n' "$*" >&2; }
-have(){ command -v "$1" >/dev/null 2>&1; }
-
-THIS="$(readlink -f "$0" 2>/dev/null || python3 - <<'PY'
-import os,sys
-print(os.path.abspath(sys.argv[1]))
-PY
-"$0")"
-MAPI_ROOT="${MAPI_ROOT:-$(cd "$(dirname "$THIS")/../.." && pwd)}"
-
+# Resolve MAPI root (prefer env from mapi.env)
+MAPI_ROOT="${MAPI_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$MAPI_ROOT"
 
-if ! have git; then
-  say "!! git is not installed or not on PATH."
+echo "[git-upload] MAPI_ROOT=$MAPI_ROOT"
+echo "[git-upload] repo: $(git rev-parse --show-toplevel 2>/dev/null || echo 'NOT A GIT REPO')"
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "[git-upload] ERROR: $MAPI_ROOT is not a git repository."
   exit 1
 fi
 
-if [[ ! -d .git ]]; then
-  say "!! $MAPI_ROOT is not a git repository (no .git/)."
-  exit 1
+# One-time: set user.name / user.email from env if provided and not already set
+if [[ -n "${GIT_USER_NAME:-}" ]]; then
+  if ! git config user.name >/dev/null 2>&1; then
+    echo "[git-upload] setting git user.name to '$GIT_USER_NAME'"
+    git config user.name "$GIT_USER_NAME"
+  fi
 fi
 
-if ! git remote get-url origin >/dev/null 2>&1; then
-  say "!! No 'origin' remote configured."
-  say "   You probably need to fork on GitHub and set origin, e.g."
-  say "     git remote add origin git@github.com:<you>/MalariAPI.git"
-  exit 1
+if [[ -n "${GIT_USER_EMAIL:-}" ]]; then
+  if ! git config user.email >/dev/null 2>&1; then
+    echo "[git-upload] setting git user.email to '$GIT_USER_EMAIL'"
+    git config user.email "$GIT_USER_EMAIL"
+  fi
 fi
 
-branch="$(git rev-parse --abbrev-ref HEAD)"
+# Commit message: either args -> message, or auto-generated
+if [[ "$#" -gt 0 ]]; then
+  COMMIT_MSG="$*"
+else
+  COMMIT_MSG="mapi: auto-commit $(date +'%Y-%m-%d %H:%M:%S')"
+fi
 
-say "==> Uploading branch '$branch' to origin"
-git push -u origin "$branch"
+echo "[git-upload] using commit message: '$COMMIT_MSG'"
 
-say "==> Upload complete. Your current branch is now tracked by origin/$branch."
+# Make sure there is actually something to commit
+CHANGES="$(git status --porcelain)"
+if [[ -z "$CHANGES" ]]; then
+  echo "[git-upload] nothing to commit; working tree clean."
+  exit 0
+fi
+
+echo "[git-upload] changes to commit:"
+echo "$CHANGES"
+
+echo "[git-upload] staging all changes (git add -A)"
+git add -A
+
+# Double-check staged content; if nothing staged, bail
+if git diff --cached --quiet; then
+  echo "[git-upload] no staged changes after git add; aborting commit."
+  exit 0
+fi
+
+echo "[git-upload] committing..."
+git commit -m "$COMMIT_MSG"
+
+echo "[git-upload] pushing (git push)..."
+GIT_TERMINAL_PROMPT=1 git push
+
+echo "[git-upload] done."
