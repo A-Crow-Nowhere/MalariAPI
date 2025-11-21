@@ -17,7 +17,7 @@ __pycache__/
 
 # MAPI-specific large/ephemeral dirs
 scratch/
-envs/*/            # your per-project env YAMLs are fine; but avoid committing whole conda env dirs
+envs/*           # your per-project env YAMLs are fine; but avoid committing whole conda env dirs
 tools/miniconda3/
 docs/
 projects/

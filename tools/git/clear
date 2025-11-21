@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
+
+HARD=0
+FORCE=0
+
+# ------------------------------------------------------------
+# Parse args
+# ------------------------------------------------------------
+while (( "$#" )); do
+  case "$1" in
+    --hard)
+      HARD=1
+      shift
+      ;;
+    --force)
+      FORCE=1
+      shift
+      ;;
+    --help|-h)
+      cat <<EOF
+Usage: mapi git clear [--hard] [--force]
+
+Without flags (SAFE MODE):
+  - Clears the git index (unstages all changes)
+  - Leaves your working files AS-IS
+  - Equivalent to: git reset
+
+With --hard (DESTRUCTIVE MODE):
+  - Discards ALL local changes in tracked files
+  - Removes ALL untracked files and directories
+  - Effectively returns the repo to the state of the last commit
+    on the current branch (usually your last pull).
+  - Equivalent to:
+      git reset --hard
+      git clean -fd
+
+
+WARNING: --hard will PERMANENTLY delete uncommitted work.
+EOF
+      exit 0
+      ;;
+    *)
+      echo "[git-clear] unknown option: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# ------------------------------------------------------------
+# Resolve MAPI root and verify repo
+# ------------------------------------------------------------
+MAPI_ROOT="${MAPI_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$MAPI_ROOT"
+
+echo "[git-clear] MAPI_ROOT=$MAPI_ROOT"
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "[git-clear] ERROR: $MAPI_ROOT is not a git repository."
+  exit 1
+fi
+
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'UNKNOWN')"
+CURRENT_HEAD="$(git rev-parse --short HEAD 2>/dev/null || echo 'NO_COMMIT')"
+echo "[git-clear] current branch: $CURRENT_BRANCH (HEAD=$CURRENT_HEAD)"
+
+# ------------------------------------------------------------
+# Perform action
+# ------------------------------------------------------------
+if [[ "$HARD" == "1" ]]; then
+  echo
+  echo "===================================================================="
+  echo "[git-clear] HARD MODE WARNING"
+  echo
+  echo "  This will:"
+  echo "    - Discard ALL local changes in tracked files"
+  echo "    - Remove ALL untracked files and directories"
+  echo
+  echo "  After this runs, your repository will be returned to the state of"
+  echo "  the LAST COMMIT on branch '$CURRENT_BRANCH' (commit $CURRENT_HEAD)."
+  echo "  In other words: all work since your last commit/pull will be lost."
+  echo
+  echo "  This CANNOT be undone with normal git commands."
+  echo "===================================================================="
+  echo
+
+  if [[ "$FORCE" != "1" ]]; then
+    read -r -p "[git-clear] Type YES (all caps) to proceed, or anything else to abort: " ANSWER
+    if [[ "$ANSWER" != "YES" ]]; then
+      echo "[git-clear] Aborted. No changes were made."
+      exit 0
+    fi
+  else
+    echo "[git-clear] --force supplied; skipping confirmation prompt."
+  fi
+
+  echo "[git-clear] HARD MODE: discarding ALL uncommitted changes and untracked files."
+  echo "[git-clear] running: git reset --hard"
+  git reset --hard
+
+  echo "[git-clear] running: git clean -fd"
+  git clean -fd
+
+  echo "[git-clear] working tree is now completely clean."
+else
+  echo "[git-clear] SAFE MODE: clearing index (unstaging), preserving file contents."
+  echo "[git-clear] running: git reset"
+  git reset
+  echo "[git-clear] done. Your working files are unchanged; nothing is staged."
+fi
+
+echo
+echo "[git-clear] current status:"
+git status --short
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
+
+HARD=0
+FORCE=0
+
+# ------------------------------------------------------------
+# Parse args
+# ------------------------------------------------------------
+while (( "$#" )); do
+  case "$1" in
+    --hard)
+      HARD=1
+      shift
+      ;;
+    --force)
+      FORCE=1
+      shift
+      ;;
+    --help|-h)
+      cat <<EOF
+Usage: mapi git clear [--hard] [--force]
+
+Without flags (SAFE MODE):
+  - Clears the git index (unstages all changes)
+  - Leaves your working files AS-IS
+  - Equivalent to: git reset
+
+With --hard (DESTRUCTIVE MODE):
+  - Discards ALL local changes in tracked files
+  - Removes ALL untracked files and directories
+  - Effectively returns the repo to the state of the last commit
+    on the current branch (usually your last pull).
+  - Equivalent to:
+      git reset --hard
+      git clean -fd
+
+The --force flag:
+  - Only meaningful with --hard
+  - Skips the interactive confirmation prompt
+  - Intended for scripted / non-interactive use
+
+WARNING: --hard will PERMANENTLY delete uncommitted work.
+EOF
+      exit 0
+      ;;
+    *)
+      echo "[git-clear] unknown option: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# ------------------------------------------------------------
+# Resolve MAPI root and verify repo
+# ------------------------------------------------------------
+MAPI_ROOT="${MAPI_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+cd "$MAPI_ROOT"
+
+echo "[git-clear] MAPI_ROOT=$MAPI_ROOT"
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "[git-clear] ERROR: $MAPI_ROOT is not a git repository."
+  exit 1
+fi
+
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'UNKNOWN')"
+CURRENT_HEAD="$(git rev-parse --short HEAD 2>/dev/null || echo 'NO_COMMIT')"
+echo "[git-clear] current branch: $CURRENT_BRANCH (HEAD=$CURRENT_HEAD)"
+
+# ------------------------------------------------------------
+# Perform action
+# ------------------------------------------------------------
+if [[ "$HARD" == "1" ]]; then
+  echo
+  echo "===================================================================="
+  echo "[git-clear] HARD MODE WARNING"
+  echo
+  echo "  This will:"
+  echo "    - Discard ALL local changes in tracked files"
+  echo "    - Remove ALL untracked files and directories"
+  echo
+  echo "  After this runs, your repository will be returned to the state of"
+  echo "  the LAST COMMIT on branch '$CURRENT_BRANCH' (commit $CURRENT_HEAD)."
+  echo "  In other words: all work since your last commit/pull will be lost."
+  echo
+  echo "  This CANNOT be undone with normal git commands."
+  echo "===================================================================="
+  echo
+
+  if [[ "$FORCE" != "1" ]]; then
+    read -r -p "[git-clear] Type YES (all caps) to proceed, or anything else to abort: " ANSWER
+    if [[ "$ANSWER" != "YES" ]]; then
+      echo "[git-clear] Aborted. No changes were made."
+      exit 0
+    fi
+  else
+    echo "[git-clear] --force supplied; skipping confirmation prompt."
+  fi
+
+  echo "[git-clear] HARD MODE: discarding ALL uncommitted changes and untracked files."
+  echo "[git-clear] running: git reset --hard"
+  git reset --hard
+
+  echo "[git-clear] running: git clean -fd"
+  git clean -fd
+
+  echo "[git-clear] working tree is now completely clean."
+else
+  echo "[git-clear] SAFE MODE: clearing index (unstaging), preserving file contents."
+  echo "[git-clear] running: git reset"
+  git reset
+  echo "[git-clear] done. Your working files are unchanged; nothing is staged."
+fi
+
+echo
+echo "[git-clear] current status:"
+git status --short

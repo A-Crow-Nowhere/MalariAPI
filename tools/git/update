@@ -1,75 +1,148 @@
 #!/usr/bin/env bash
-# tools/git/update
-# Usage: mapi git update [--force]
-# - On main: fetch + merge from upstream/main (or origin/main if no upstream)
-# - On other branches: fetch + pull --rebase from origin/<branch>
+set -Eeuo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
 
-set -euo pipefail
+# ------------------------------------------------------------
+# Parse args
+# ------------------------------------------------------------
+VERSION_UPDATE=0
 
-say(){ printf '%s\n' "$*" >&2; }
-have(){ command -v "$1" >/dev/null 2>&1; }
+while (( "$#" )); do
+  case "$1" in
+    --version-update)
+      VERSION_UPDATE=1
+      shift
+      ;;
+    --help|-h)
+      cat <<EOF
+Usage: mapi git update [--version-update]
 
-FORCE=0
-if [[ "${1:-}" == "--force" ]]; then
-  FORCE=1
-fi
+Without flags:
+  - Uses the 'upstream' remote (whatever the user configured)
+  - Fetches upstream/main
+  - Merges into local main
+  - Pushes to origin/main
+  - Merges updated main into the current branch and pushes it (if tracked)
 
-# Resolve MAPI_ROOT from this script location
-THIS="$(readlink -f "$0" 2>/dev/null || python3 - <<'PY'
-import os,sys
-print(os.path.abspath(sys.argv[1]))
-PY
-"$0")"
-MAPI_ROOT="${MAPI_ROOT:-$(cd "$(dirname "$THIS")/../.." && pwd)}"
+With --version-update:
+  - Uses canonical MAPI remote (mapi-main), pointing to:
+      \${MAPI_UPSTREAM_URL:-git@github.com:A-Crow-Nowhere/MalariAPI.git}
+  - Same merge/push behavior as above, but always from canonical MAPI main.
 
+EOF
+      exit 0
+      ;;
+    *)
+      echo "[git-update] unknown option: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# ------------------------------------------------------------
+# Resolve MAPI root
+# ------------------------------------------------------------
+MAPI_ROOT="${MAPI_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$MAPI_ROOT"
 
-if ! have git; then
-  say "!! git is not installed or not on PATH."
+echo "[git-update] MAPI_ROOT=$MAPI_ROOT"
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "[git-update] ERROR: $MAPI_ROOT is not a git repository."
   exit 1
 fi
 
-if [[ ! -d .git ]]; then
-  say "!! $MAPI_ROOT is not a git repository (no .git/)."
-  exit 1
-fi
+# Remember the branch the user was on when they ran update
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+echo "[git-update] starting on branch: $CURRENT_BRANCH"
 
-# Protect users from clobbering local work
-if [[ $FORCE -eq 0 ]]; then
-  if [[ -n "$(git status --porcelain)" ]]; then
-    say "!! You have uncommitted changes in $MAPI_ROOT."
-    say "   Commit or stash them, or rerun with:"
-    say "     mapi git update --force"
+# ------------------------------------------------------------
+# Decide which remote to use
+# ------------------------------------------------------------
+REMOTE_NAME=""
+REMOTE_URL=""
+
+if [[ "$VERSION_UPDATE" == "1" ]]; then
+  # Canonical version update: always pull from your MAPI main
+  REMOTE_NAME="mapi-main"
+  REMOTE_URL="${MAPI_UPSTREAM_URL:-git@github.com:A-Crow-Nowhere/MalariAPI.git}"
+
+  if ! git remote | grep -qx "$REMOTE_NAME"; then
+    echo "[git-update] adding canonical remote '$REMOTE_NAME' -> $REMOTE_URL"
+    git remote add "$REMOTE_NAME" "$REMOTE_URL"
+  else
+    echo "[git-update] using existing canonical remote '$REMOTE_NAME'"
+  fi
+else
+  # Respect whatever the user set as upstream
+  REMOTE_NAME="upstream"
+  if ! git remote | grep -qx "$REMOTE_NAME"; then
+    echo "[git-update] ERROR: no 'upstream' remote configured."
+    echo "  Please either:"
+    echo "    git remote add upstream git@github.com:YourUser/MalariAPI.git"
+    echo "  or run:"
+    echo "    mapi git update --version-update"
     exit 1
   fi
+  echo "[git-update] using user-configured upstream remote '$REMOTE_NAME'"
 fi
 
-current_branch="$(git rev-parse --abbrev-ref HEAD)"
-remote_base="origin"
-if git remote get-url upstream >/dev/null 2>&1; then
-  remote_base="upstream"
-fi
+# ------------------------------------------------------------
+# Fetch from chosen remote
+# ------------------------------------------------------------
+echo "[git-update] fetching from $REMOTE_NAME..."
+git fetch "$REMOTE_NAME"
 
-say "==> MAPI_ROOT: $MAPI_ROOT"
-say "==> Current branch: $current_branch"
+# ------------------------------------------------------------
+# Update local main from REMOTE_NAME/main
+# ------------------------------------------------------------
+if git show-ref --verify --quiet refs/heads/main; then
+  echo "[git-update] switching to main"
+  git switch main
 
-if [[ "$current_branch" == "main" ]]; then
-  say "==> Updating main from $remote_base/main"
-  git fetch "$remote_base"
-  # Use a simple merge to avoid surprising rebases for new users
-  git merge "$remote_base/main"
+  echo "[git-update] merging $REMOTE_NAME/main into local main"
+  if ! git merge --ff-only "$REMOTE_NAME/main"; then
+    echo "[git-update] non-fast-forward; attempting normal merge"
+    if ! git merge "$REMOTE_NAME/main"; then
+      echo "[git-update] MERGE CONFLICTS in main."
+      echo "  Please resolve conflicts in main, then run:"
+      echo "    git commit"
+      echo "    git push origin main"
+      exit 1
+    fi
+  fi
+
+  echo "[git-update] pushing updated main -> origin/main"
+  git push origin main
 else
-  # For feature branches, update from origin by default
-  remote_feat="origin"
-  say "==> Updating branch '$current_branch' from $remote_feat/$current_branch"
-  git fetch "$remote_feat" || true
-  # If remote branch exists, rebase onto it; otherwise just pull from upstream main
-  if git rev-parse --verify "$remote_feat/$current_branch" >/dev/null 2>&1; then
-    git pull --rebase "$remote_feat" "$current_branch"
-  else
-    say "!! No remote branch $remote_feat/$current_branch found."
-    say "   You may want to push it first via: mapi git upload"
+  echo "[git-update] no local main branch; skipping main update"
+fi
+
+# ------------------------------------------------------------
+# If user started on another branch, merge updated main into it
+# ------------------------------------------------------------
+if [[ "$CURRENT_BRANCH" != "main" ]]; then
+  echo "[git-update] switching back to previous branch: $CURRENT_BRANCH"
+  if ! git switch "$CURRENT_BRANCH"; then
+    echo "[git-update] WARNING: could not switch back to $CURRENT_BRANCH"
+    exit 0
+  fi
+
+  if git show-ref --verify --quiet refs/heads/main; then
+    echo "[git-update] merging updated main into $CURRENT_BRANCH"
+    if ! git merge main; then
+      echo "[git-update] MERGE CONFLICTS in $CURRENT_BRANCH."
+      echo "  Please resolve conflicts and commit manually."
+      exit 1
+    fi
+
+    # Push if this branch has an upstream
+    if git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+      echo "[git-update] pushing updated $CURRENT_BRANCH to its upstream"
+      git push
+    else
+      echo "[git-update] no upstream set for $CURRENT_BRANCH; not pushing automatically."
+    fi
   fi
 fi
 
-say "==> Update complete. (Your .gitignore was respected by git as usual.)"
+echo "[git-update] done."

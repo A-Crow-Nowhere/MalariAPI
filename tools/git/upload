@@ -60,7 +60,23 @@ fi
 echo "[git-upload] committing..."
 git commit -m "$COMMIT_MSG"
 
-echo "[git-upload] pushing (git push)..."
-GIT_TERMINAL_PROMPT=1 git push
+# Figure out current branch
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+echo "[git-upload] current branch: $CURRENT_BRANCH"
+
+# Check if this branch already has an upstream
+UPSTREAM=""
+if git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+  UPSTREAM="$(git rev-parse --abbrev-ref '@{u}')"
+fi
+
+if [[ -z "$UPSTREAM" ]]; then
+  echo "[git-upload] no upstream set for '$CURRENT_BRANCH'; pushing with -u origin $CURRENT_BRANCH"
+  GIT_TERMINAL_PROMPT=1 git push -u origin "$CURRENT_BRANCH"
+else
+  echo "[git-upload] upstream is '$UPSTREAM'; pushing with plain git push"
+  GIT_TERMINAL_PROMPT=1 git push
+fi
 
 echo "[git-upload] done."
+
