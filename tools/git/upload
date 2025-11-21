@@ -32,6 +32,8 @@ With --force-with-lease:
   - Same as above, but uses:
       git push --force-with-lease
     (or git push --force-with-lease -u origin <branch> if no upstream)
+  - If there are NO local changes, still performs the force-with-lease push,
+    effectively resetting the remote branch to your current local HEAD.
 
 With --force:
   - Prints a big warning about rewriting remote history
@@ -39,6 +41,8 @@ With --force:
   - Then uses:
       git push --force
     (or git push --force -u origin <branch> if no upstream)
+  - If there are NO local changes, still performs the force push, resetting
+    the remote branch to your current local HEAD.
 
 WARNING: --force / --force-with-lease can rewrite remote history.
 EOF
@@ -88,41 +92,7 @@ if [[ -n "${GIT_USER_EMAIL:-}" ]]; then
 fi
 
 # ------------------------------------------------------------
-# Determine commit message
-# ------------------------------------------------------------
-if [[ "$#" -gt 0 ]]; then
-  COMMIT_MSG="$*"
-else
-  COMMIT_MSG="mapi: auto-commit $(date +'%Y-%m-%d %H:%M:%S')"
-fi
-echo "[git-upload] using commit message: '$COMMIT_MSG'"
-
-# ------------------------------------------------------------
-# Check for changes
-# ------------------------------------------------------------
-CHANGES="$(git status --porcelain)"
-if [[ -z "$CHANGES" ]]; then
-  echo "[git-upload] nothing to commit; working tree clean."
-  exit 0
-fi
-
-echo "[git-upload] changes to commit:"
-echo "$CHANGES"
-
-echo "[git-upload] staging all changes (git add -A)"
-git add -A
-
-# Double-check staged content; if nothing staged, bail
-if git diff --cached --quiet; then
-  echo "[git-upload] no staged changes after git add; aborting commit."
-  exit 0
-fi
-
-echo "[git-upload] committing..."
-git commit -m "$COMMIT_MSG"
-
-# ------------------------------------------------------------
-# Decide how to push based on current branch & upstream
+# Determine branch / upstream before dealing with changes
 # ------------------------------------------------------------
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 echo "[git-upload] current branch: $CURRENT_BRANCH"
@@ -139,63 +109,119 @@ else
 fi
 
 # ------------------------------------------------------------
-# Execute the appropriate push
+# Helper: perform the push according to FORCE_MODE
 # ------------------------------------------------------------
-case "$FORCE_MODE" in
-  none)
-    if [[ -z "$UPSTREAM" ]]; then
-      echo "[git-upload] no upstream set; pushing with: git push -u origin $CURRENT_BRANCH"
-      GIT_TERMINAL_PROMPT=1 git push -u origin "$CURRENT_BRANCH"
-    else
-      echo "[git-upload] upstream is '$UPSTREAM'; pushing with plain git push"
-      GIT_TERMINAL_PROMPT=1 git push
-    fi
-    ;;
-  lease)
-    echo "[git-upload] FORCE-WITH-LEASE: pushing to $TARGET_DESC"
-    if [[ -z "$UPSTREAM" ]]; then
-      echo "[git-upload] running: git push --force-with-lease -u origin $CURRENT_BRANCH"
-      GIT_TERMINAL_PROMPT=1 git push --force-with-lease -u origin "$CURRENT_BRANCH"
-    else
-      echo "[git-upload] running: git push --force-with-lease"
-      GIT_TERMINAL_PROMPT=1 git push --force-with-lease
-    fi
-    ;;
-  force)
-    CURRENT_HEAD="$(git rev-parse --short HEAD 2>/dev/null || echo 'NO_COMMIT')"
-    echo
-    echo "===================================================================="
-    echo "[git-upload] HARD FORCE PUSH WARNING"
-    echo
-    echo "  You are about to FORCE PUSH branch '$CURRENT_BRANCH' to:"
-    echo "      $TARGET_DESC"
-    echo
-    echo "  This will REWRITE REMOTE HISTORY for that branch."
-    echo "  Any commits that currently exist on the remote but are not"
-    echo "  in your local history at HEAD=$CURRENT_HEAD will be LOST from"
-    echo "  the remote branch."
-    echo
-    echo "  This is effectively making your local branch the new ground truth"
-    echo "  for that remote branch."
-    echo
-    echo "  This CANNOT be undone with normal git commands."
-    echo "===================================================================="
-    echo
+do_push() {
+  case "$FORCE_MODE" in
+    none)
+      if [[ -z "$UPSTREAM" ]]; then
+        echo "[git-upload] no upstream set; pushing with: git push -u origin $CURRENT_BRANCH"
+        GIT_TERMINAL_PROMPT=1 git push -u origin "$CURRENT_BRANCH"
+      else
+        echo "[git-upload] upstream is '$UPSTREAM'; pushing with plain git push"
+        GIT_TERMINAL_PROMPT=1 git push
+      fi
+      ;;
+    lease)
+      echo "[git-upload] FORCE-WITH-LEASE: pushing to $TARGET_DESC"
+      if [[ -z "$UPSTREAM" ]]; then
+        echo "[git-upload] running: git push --force-with-lease -u origin $CURRENT_BRANCH"
+        GIT_TERMINAL_PROMPT=1 git push --force-with-lease -u origin "$CURRENT_BRANCH"
+      else
+        echo "[git-upload] running: git push --force-with-lease"
+        GIT_TERMINAL_PROMPT=1 git push --force-with-lease
+      fi
+      ;;
+    force)
+      CURRENT_HEAD="$(git rev-parse --short HEAD 2>/dev/null || echo 'NO_COMMIT')"
+      echo
+      echo "===================================================================="
+      echo "[git-upload] HARD FORCE PUSH WARNING"
+      echo
+      echo "  You are about to FORCE PUSH branch '$CURRENT_BRANCH' to:"
+      echo "      $TARGET_DESC"
+      echo
+      echo "  This will REWRITE REMOTE HISTORY for that branch."
+      echo "  Any commits that currently exist on the remote but are not"
+      echo "  in your local history at HEAD=$CURRENT_HEAD will be LOST from"
+      echo "  the remote branch."
+      echo
+      echo "  This is effectively making your local branch the new ground truth"
+      echo "  for that remote branch."
+      echo
+      echo "  This CANNOT be undone with normal git commands."
+      echo "===================================================================="
+      echo
 
-    read -r -p "[git-upload] Type YES (all caps) to proceed with force push, or anything else to abort: " ANSWER
-    if [[ "$ANSWER" != "YES" ]]; then
-      echo "[git-upload] Aborted. No force push was performed."
-      exit 1
-    fi
+      read -r -p "[git-upload] Type YES (all caps) to proceed with force push, or anything else to abort: " ANSWER
+      if [[ "$ANSWER" != "YES" ]]; then
+        echo "[git-upload] Aborted. No force push was performed."
+        exit 1
+      fi
 
-    if [[ -z "$UPSTREAM" ]]; then
-      echo "[git-upload] running: git push --force -u origin $CURRENT_BRANCH"
-      GIT_TERMINAL_PROMPT=1 git push --force -u origin "$CURRENT_BRANCH"
-    else
-      echo "[git-upload] running: git push --force"
-      GIT_TERMINAL_PROMPT=1 git push --force
-    fi
-    ;;
-esac
+      if [[ -z "$UPSTREAM" ]]; then
+        echo "[git-upload] running: git push --force -u origin $CURRENT_BRANCH"
+        GIT_TERMINAL_PROMPT=1 git push --force -u origin "$CURRENT_BRANCH"
+      else
+        echo "[git-upload] running: git push --force"
+        GIT_TERMINAL_PROMPT=1 git push --force
+      fi
+      ;;
+  esac
+}
+
+# ------------------------------------------------------------
+# Determine commit message
+# ------------------------------------------------------------
+if [[ "$#" -gt 0 ]]; then
+  COMMIT_MSG="$*"
+else
+  COMMIT_MSG="mapi: auto-commit $(date +'%Y-%m-%d %H:%M:%S')"
+fi
+echo "[git-upload] using commit message: '$COMMIT_MSG'"
+
+# ------------------------------------------------------------
+# Check for changes
+# ------------------------------------------------------------
+CHANGES="$(git status --porcelain)"
+
+if [[ -z "$CHANGES" ]]; then
+  echo "[git-upload] nothing to commit; working tree clean."
+  if [[ "$FORCE_MODE" == "none" ]]; then
+    echo "[git-upload] no force mode requested; nothing to do."
+    exit 0
+  else
+    echo "[git-upload] force mode '$FORCE_MODE' requested; pushing current HEAD to $TARGET_DESC even without local file changes."
+    do_push
+    echo "[git-upload] done."
+    exit 0
+  fi
+fi
+
+echo "[git-upload] changes to commit:"
+echo "$CHANGES"
+
+echo "[git-upload] staging all changes (git add -A)"
+git add -A
+
+# Double-check staged content; if nothing staged, bail unless force mode
+if git diff --cached --quiet; then
+  echo "[git-upload] no staged changes after git add."
+  if [[ "$FORCE_MODE" == "none" ]]; then
+    echo "[git-upload] nothing to push; exiting."
+    exit 0
+  else
+    echo "[git-upload] force mode '$FORCE_MODE' requested; pushing current HEAD to $TARGET_DESC."
+    do_push
+    echo "[git-upload] done."
+    exit 0
+  fi
+fi
+
+echo "[git-upload] committing..."
+git commit -m "$COMMIT_MSG"
+
+# Now push according to force mode
+do_push
 
 echo "[git-upload] done."
