@@ -22,11 +22,11 @@ Pick the box that matches what you did and what you want.
 > First install will take several minutes. 
 
 <p align="center">
-  <img src="docs/installOptions_cropped-1.png" width="11000">
+  <img src="installOptions_cropped-1.png" width="11000">
 </p>
 
 <p align="center">
-  <a href="docs/installOptions_cropped.pdf">Download PDF (copy-paste friendly)</a>
+  <a href="installOptions_cropped.pdf">Download PDF (copy-paste friendly)</a>
 </p>
 
 > If in doubt, or for more novice users, select the first in either column. All features can be added in aftwards by running the installer again; as in these examples.
