@@ -1,0 +1,49 @@
+{
+  "name": "libmpdec",
+  "version": "4.0.0",
+  "build": "hb9d3cd8_0",
+  "build_number": 0,
+  "channel": "https://conda.anaconda.org/conda-forge/noarch",
+  "subdir": "linux-64",
+  "fn": "libmpdec-4.0.0-hb9d3cd8_0.conda",
+  "md5": "c7e925f37e3b40d893459e625f6a53f1",
+  "url": "https://conda.anaconda.org/conda-forge/linux-64/libmpdec-4.0.0-hb9d3cd8_0.conda",
+  "sha256": "3aa92d4074d4063f2a162cd8ecb45dccac93e543e565c01a787e16a43501f7ee",
+  "depends": [
+    "__glibc >=2.17,<3.0.a0",
+    "libgcc >=13"
+  ],
+  "constrains": [],
+  "license": "BSD-2-Clause",
+  "timestamp": 1748393666000,
+  "size": 91183,
+  "requested_spec": "None",
+  "package_tarball_full_path": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libmpdec-4.0.0-hb9d3cd8_0.conda",
+  "extracted_package_dir": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libmpdec-4.0.0-hb9d3cd8_0",
+  "files": [
+    "lib/libmpdec.so.4",
+    "lib/libmpdec.so.4.0.0"
+  ],
+  "paths_data": {
+    "paths_version": 1,
+    "paths": [
+      {
+        "_path": "lib/libmpdec.so.4",
+        "path_type": "softlink",
+        "sha256": "e3e03d8738eac993fef7ed2aa3f1d171e049d522659118c00f8064d47ebb8827",
+        "size_in_bytes": 229552
+      },
+      {
+        "_path": "lib/libmpdec.so.4.0.0",
+        "path_type": "hardlink",
+        "sha256": "e3e03d8738eac993fef7ed2aa3f1d171e049d522659118c00f8064d47ebb8827",
+        "size_in_bytes": 229552,
+        "sha256_in_prefix": "e3e03d8738eac993fef7ed2aa3f1d171e049d522659118c00f8064d47ebb8827"
+      }
+    ]
+  },
+  "link": {
+    "source": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libmpdec-4.0.0-hb9d3cd8_0",
+    "type": 1
+  }
+}

@@ -71,19 +71,33 @@ PKG_DIR="$BIN_DIR/packages"
 SCRIPT_DIR="$BIN_DIR/scripts"
 PIPE_YAML_DIR="$MAPI_ROOT/pipeline/yaml"
 
+# ------------------------------------------------------------
+# MSF (MAPI Sample Folder) detection
+# ------------------------------------------------------------
+detect_msf() {
+  local dir="$PWD" base sample
+  while [[ "$dir" != "/" && -n "$dir" ]]; do
+    base="$(basename "$dir")"
+    if [[ "$base" == mapi-* ]]; then
+      sample="${base#mapi-}"
+      export MAPI_SAMPLE_ROOT="$dir"
+      export MAPI_SAMPLE_NAME="$sample"
+      export MAPI_SAMPLE_OUT="$dir/$sample-output"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
 
-# NOTE: env YAMLs
-#  - modules:   bin/modules/yaml/<name>.yml
-#  - pipelines: pipeline/yaml/<name>.yml   (repo-root, singular "pipeline")
-#  - packages:  bin/packages/<name>/yaml/<name>.yml
-PIPE_YAML_DIR="$REPO_ROOT/pipeline/yaml"
+detect_msf || true
 
-# YAML helpers
+# ------------------------------------------------------------
+# YAML helpers (for env + listing)
+# ------------------------------------------------------------
 find_module_yaml() {
   local n="$1"
   local candidates=(
-    "$REPO_ROOT/modules/yaml/$n.yml"
-    "$REPO_ROOT/modules/yaml/$n.yaml"
     "$BIN_DIR/modules/yaml/$n.yml"
     "$BIN_DIR/modules/yaml/$n.yaml"
   )
@@ -94,16 +108,15 @@ find_module_yaml() {
   return 1
 }
 
-# Support both older "env_name:" style and plain env "name:" style
 get_env_name_from_yaml() {
   local y="$1"
   local val
-  val="$(grep -E '^env_name:' "$y" 2>/dev/null | head -n1 | sed 's/env_name:[[:space:]]*//')" || true
+  val="$(grep -E '^[[:space:]]*env_name:' "$y" 2>/dev/null | head -n1 | sed 's/^[[:space:]]*env_name:[[:space:]]*//')" || true
   if [[ -n "$val" ]]; then
     printf '%s\n' "$val"
     return 0
   fi
-  val="$(grep -E '^name:' "$y" 2>/dev/null | head -n1 | sed 's/name:[[:space:]]*//')" || true
+  val="$(grep -E '^[[:space:]]*name:' "$y" 2>/dev/null | head -n1 | sed 's/^[[:space:]]*name:[[:space:]]*//')" || true
   [[ -n "$val" ]] && printf '%s\n' "$val"
 }
 
@@ -152,70 +165,124 @@ list_items() {
 }
 
 # ------------------------------------------------------------
-# Env selection helper with warnings + default fallback
+# Header ENV: parser (primary/fallback)
+# ------------------------------------------------------------
+_read_env_from_header() {
+  local script="$1"
+  local header section="" line val primary="" fallback=""
+
+  header="$(
+    awk '/^# MAPI_META_BEGIN/{flag=1;next} /^# MAPI_META_END/{flag=0} flag{print}' "$script" 2>/dev/null \
+      || true
+  )"
+  [[ -z "$header" ]] && { printf '\n\n'; return 0; }
+
+  while IFS= read -r line; do
+    # Strip leading "#"/"# " and whitespace
+    line="${line#\# }"
+    line="${line#\#}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+
+    case "$line" in
+      ENV:*)
+        section="ENV"
+        continue
+        ;;
+      NAME:*|SUMMARY:*|OUTPUTS:*|OPTIONS:*|RESOURCES:*|"")
+        # Leaving ENV section
+        [[ "$section" == "ENV" ]] && break
+        ;;
+    esac
+
+    if [[ "$section" == "ENV" ]]; then
+      case "$line" in
+        primary:*)
+          val="${line#primary:}"
+          val="${val#"${val%%[![:space:]]*}"}"
+          val="${val%"${val##*[![:space:]]}"}"
+          primary="$val"
+          ;;
+        fallback:*)
+          val="${line#fallback:}"
+          val="${val#"${val%%[![:space:]]*}"}"
+          val="${val%"${val##*[![:space:]]}"}"
+          fallback="$val"
+          ;;
+      esac
+    fi
+  done <<< "$header"
+
+  printf '%s\n' "$primary"
+  printf '%s\n' "$fallback"
+}
+
+# ------------------------------------------------------------
+# Env selection helper with header+YAML+default
 # ------------------------------------------------------------
 _choose_env_with_fallback() {
-  # args: kind name yaml_kind [meta_for_package]
+  # args: kind name script_path yaml_kind [meta_for_package]
   local kind="$1"; shift
   local name="$1"; shift
+  local script="$1"; shift
   local yaml_kind="$1"; shift || true
+  local meta="${1:-}"
 
-  local meta=""
-  local env_name=""
-  local prefix=""
+  local primary="" fallback="" header_primary="" header_fallback=""
+  local yaml_env=""
 
+  # 1) Try header ENV for modules/pipelines/packages that have it
+  if [[ -f "$script" ]]; then
+    header_primary="$(_read_env_from_header "$script" | sed -n '1p')"
+    header_fallback="$(_read_env_from_header "$script" | sed -n '2p')"
+  fi
+
+  # 2) YAML env_name as legacy/secondary
   case "$yaml_kind" in
     module)
-      meta="$(find_module_yaml "$name" 2>/dev/null || true)"
+      [[ -z "$meta" ]] && meta="$(find_module_yaml "$name" 2>/dev/null || true)"
       ;;
     pipeline)
-      meta="$(find_pipeline_yaml "$name" 2>/dev/null || true)"
+      [[ -z "$meta" ]] && meta="$(find_pipeline_yaml "$name" 2>/dev/null || true)"
       ;;
     package)
-      # for packages, the caller passes meta explicitly as $1
-      meta="${1:-}"
+      # meta passed in explicitly
       ;;
   esac
 
-  if [[ "$yaml_kind" != "package" ]]; then
-    # modules/pipelines discover meta here
-    if [[ -n "$meta" ]]; then
-      env_name="$(get_env_name_from_yaml "$meta")"
-      if [[ -z "$env_name" ]]; then
-        echo "[mapi] WARNING: $kind '$name' metadata '$meta' has no env name; using 'default'." >&2
-        env_name="default"
-      else
-        echo "[mapi] Using env '$env_name' for $kind '$name' (from $meta)." >&2
-      fi
-    else
-      echo "[mapi] WARNING: no metadata YAML for $kind '$name'; using 'default' environment." >&2
-      env_name="default"
-    fi
-  else
-    # packages: meta already known, env_name from YAML
-    if [[ -n "$meta" && -f "$meta" ]]; then
-      env_name="$(get_env_name_from_yaml "$meta")"
-    fi
-    if [[ -z "$env_name" ]]; then
-      echo "[mapi] WARNING: package '$name' has no env name; using 'default'." >&2
-      env_name="default"
-    else
-      echo "[mapi] Using env '$env_name' for package '$name' (from $meta)." >&2
-    fi
+  if [[ -n "$meta" && -f "$meta" ]]; then
+    yaml_env="$(get_env_name_from_yaml "$meta" 2>/dev/null || true)"
   fi
 
-  prefix="$REPO_ROOT/envs/$env_name"
+  # Decide primary/fallback env names
+  if [[ -n "$header_primary" ]]; then
+    primary="$header_primary"
+    [[ -n "$header_fallback" ]] && fallback="$header_fallback"
+  elif [[ -n "$yaml_env" ]]; then
+    primary="$yaml_env"
+  fi
+
+  # Final fallback chain
+  [[ -z "$primary" ]] && primary="default"
+  [[ -z "$fallback" ]] && fallback="default"
+
+  local prefix
+  prefix="$MAPI_ROOT/envs/$primary"
   if [[ ! -d "$prefix" ]]; then
-    echo "[mapi] WARNING: env prefix not found: $prefix; falling back to 'default'." >&2
-    env_name="default"
-    prefix="$REPO_ROOT/envs/default"
+    echo "[mapi] WARNING: env '$primary' for $kind '$name' not found at $prefix; trying fallback '$fallback'." >&2
+    prefix="$MAPI_ROOT/envs/$fallback"
     if [[ ! -d "$prefix" ]]; then
-      echo "[mapi] ERROR: default env not found at $prefix. Please install it (tools/install_envs --only default)." >&2
-      return 3
+      echo "[mapi] WARNING: fallback env '$fallback' for $kind '$name' not found at $prefix; trying 'default'." >&2
+      primary="default"
+      prefix="$MAPI_ROOT/envs/default"
+      if [[ ! -d "$prefix" ]]; then
+        echo "[mapi] ERROR: default env not found at $prefix. Please install it (tools/install_envs --only default)." >&2
+        return 3
+      fi
     fi
   fi
 
-  echo "[mapi] Running $kind '$name' in environment '$env_name'." >&2
+  echo "[mapi] Running $kind '$name' in environment '$primary'." >&2
   printf '%s\n' "$prefix"
 }
 
@@ -232,10 +299,16 @@ run_item() {
       [[ -x "$entry" ]] || { echo "mapi: module not found/executable: $entry" >&2; exit 4; }
 
       local prefix
-      prefix="$(_choose_env_with_fallback module "$name" module)" || exit $?
+      prefix="$(_choose_env_with_fallback module "$name" "$entry" module)" || exit $?
 
-      export MAPI_REPO_ROOT="$REPO_ROOT"
+      export MAPI_REPO_ROOT="$MAPI_ROOT"
       export MAPI_MODULE_YAML="$(find_module_yaml "$name" 2>/dev/null || true)"
+
+      # If we're in an MSF, gently suggest OUTDIR to modules via env
+      if [[ -n "${MAPI_SAMPLE_OUT:-}" ]]; then
+        export OUTDIR="${OUTDIR:-$MAPI_SAMPLE_OUT}"
+      fi
+
       exec conda run -p "$prefix" bash "$entry" "$@"
       ;;
 
@@ -244,10 +317,15 @@ run_item() {
       [[ -x "$entry" ]] || { echo "mapi: pipeline not found/executable: $entry" >&2; exit 4; }
 
       local prefix
-      prefix="$(_choose_env_with_fallback pipeline "$name" pipeline)" || exit $?
+      prefix="$(_choose_env_with_fallback pipeline "$name" "$entry" pipeline)" || exit $?
 
-      export MAPI_REPO_ROOT="$REPO_ROOT"
+      export MAPI_REPO_ROOT="$MAPI_ROOT"
       export MAPI_PIPELINE_YAML="$(find_pipeline_yaml "$name" 2>/dev/null || true)"
+
+      if [[ -n "${MAPI_SAMPLE_OUT:-}" ]]; then
+        export OUTDIR="${OUTDIR:-$MAPI_SAMPLE_OUT}"
+      fi
+
       exec conda run -p "$prefix" bash "$entry" "$@"
       ;;
 
@@ -263,20 +341,10 @@ run_item() {
         [[ -f "$c" ]] && { meta="$c"; break; }
       done
 
-      if [[ -z "$meta" ]]; then
-        echo "[mapi] WARNING: Missing package YAML for '$name'; using 'default' environment." >&2
-      else
-        local env_name_raw=""
-        env_name_raw="$(get_env_name_from_yaml "$meta")"
-        if [[ -n "$env_name_raw" && "$env_name_raw" != "$name" ]]; then
-          echo "[mapi] WARNING: package '$name' has env name '$env_name_raw' (expected '$name')." >&2
-        fi
-      fi
-
       local prefix
-      prefix="$(_choose_env_with_fallback package "$name" package "$meta")" || exit $?
+      prefix="$(_choose_env_with_fallback package "$name" "$wrapper" package "$meta")" || exit $?
 
-      export MAPI_REPO_ROOT="$REPO_ROOT"
+      export MAPI_REPO_ROOT="$MAPI_ROOT"
       export MAPI_PACKAGE_YAML="$meta"
       export MAPI_PACKAGE_DIR="$pkg_dir"
 
@@ -403,7 +471,7 @@ EOF
       [[ -d "$d" ]] || continue
       bn="$(basename "$d")"
       case "$bn" in
-        base|yaml|misc|templates|git|hpc_templates|scripts|bin|_*|miniconda3)
+        base|yaml|misc|templates|hpc_templates|scripts|bin|_*|miniconda3)
           continue
           ;;
       esac
@@ -428,7 +496,7 @@ if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
   exit 0
 fi
 
-# Case A: "mapi <hpc>" → list its tools
+# Case A (message): "mapi <subdir in /tools>" → list its tools
 if [[ $# -eq 1 && -d "$TOOLS_DIR/$1" ]]; then
   case "$1" in
     base|yaml|misc|templates|hpc_templates|scripts|bin|_*|miniconda3)
@@ -445,7 +513,7 @@ if [[ $# -eq 1 && -d "$TOOLS_DIR/$1" ]]; then
   esac
 fi
 
-# Case B: "mapi <hpc> <cmd> ..." → HPC dispatch
+# Case B (runner): "mapi <hpc> <cmd> ..." → HPC dispatch
 if [[ $# -ge 2 && -d "$TOOLS_DIR/$1" && -x "$TOOLS_DIR/$1/$2" ]]; then
   _mapi_hpc="$1"
   _mapi_cmd="$2"
@@ -460,20 +528,19 @@ if [[ $# -ge 2 && -d "$TOOLS_DIR/$1" && -x "$TOOLS_DIR/$1/$2" ]]; then
   mapfile -d '' _expanded < <(_expand_hpc_args "$_mapi_hpc" "$@")
   exec "$TOOLS_DIR/$_mapi_hpc/$_mapi_cmd" "${_expanded[@]}"
 fi
-# Case C: "mapi hpc <cmd> ..." → use default_hpc from config
-if [[ $# -ge 2 && "$1" == "hpc" && -f "$CFG_JSON" ]] && have_jq; then
-  _default_hpc="$(jq -r '.default_hpc // empty' "$CFG_JSON")"
-  _mapi_cmd="$2"
-  if [[ -n "$_default_hpc" && -x "$TOOLS_DIR/$_default_hpc/$_mapi_cmd" ]]; then
-    shift 2
-    mapfile -d '' _expanded < <(_expand_hpc_args "$_default_hpc" "$@")
-    exec "$TOOLS_DIR/$_default_hpc/$_mapi_cmd" "${_expanded[@]}"
-  fi
-fi
 
 # Case D: "mapi tools <name> ..." / "mapi modules <name> ..." / etc.
 case "${1:-}" in
-  modules|pipelines|packages|scripts|tools)
+  modules|pipelines)
+    t="$1"; shift || true
+    if [[ $# -eq 0 ]]; then
+      list_items "$t"
+      exit 0
+    else
+      run_item "$t" "$@"
+    fi
+    ;;
+  packages)
     t="$1"; shift || true
     if [[ $# -eq 0 ]]; then
       list_items "$t"
@@ -483,12 +550,6 @@ case "${1:-}" in
     fi
     ;;
 esac
-
-# Case E: local single-word tool in tools/
-if [[ $# -ge 1 && -x "$TOOLS_DIR/$1" && ! -d "$TOOLS_DIR/$1" ]]; then
-  _mapi_cmd="$1"; shift
-  exec "$TOOLS_DIR/$_mapi_cmd" "$@"
-fi
 
 # Fallback
 echo "mapi: unknown command. Run 'mapi --help'." >&2

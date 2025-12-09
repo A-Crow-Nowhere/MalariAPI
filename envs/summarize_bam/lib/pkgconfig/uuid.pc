@@ -1,0 +1,11 @@
+prefix=/home/a-crow-nowhere/MalariAPI/envs/summarize_bam
+exec_prefix=/home/a-crow-nowhere/MalariAPI/envs/summarize_bam
+libdir=/home/a-crow-nowhere/MalariAPI/envs/summarize_bam/lib
+includedir=/home/a-crow-nowhere/MalariAPI/envs/summarize_bam/include
+
+Name: uuid
+Description: Universally unique id library
+Version: 2.41.2
+Cflags: -I${includedir}/uuid
+Libs.private:  -lpthread
+Libs: -L${libdir} -luuid

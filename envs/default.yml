@@ -1,4 +1,4 @@
-name: defualt
+name: default
 channels:
   - conda-forge
   - bioconda

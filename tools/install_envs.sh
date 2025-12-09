@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# MAPI environment (re)installer — idempotent
+# MAPI environment (re)installer - idempotent
 # Builds/updates env prefixes under: <repo>/envs/<env_name>/
-# Scans specs in:
+# Scans specs by default in:
 #   - bin/modules/yaml/*.yml
 #   - pipeline/yaml/*.yml
-#   - bin/packages/*/yaml/*.yml
+# OR, if one or more YAML paths are provided as positional arguments,
+# processes *only* those paths, regardless of location.
 set -Eeuo pipefail
 [[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
 
@@ -50,26 +51,31 @@ mkdir -p "$ENV_PREFIX_ROOT" "$HASH_DIR"
 # Make sure conda looks here first
 export CONDA_ENVS_DIRS="$ENV_PREFIX_ROOT"
 # NOTE: we do NOT source conda.sh; conda env create/update is enough and faster.
-# [[ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]] && source "$CONDA_ROOT/etc/profile.d/conda.sh"
 
 # -------------------- Spec locations ----------------------
 MODULE_SPECS_DIR="$REPO_ROOT/bin/modules/yaml"
 PIPE_SPECS_DIR="$REPO_ROOT/pipeline/yaml"
-PKG_SPECS_GLOB="$REPO_ROOT/bin/packages/*/yaml/*.yml"
 
 # -------------------- CLI flags ---------------------------
 FORCE=0
 PRUNE=0
 ONLY_LIST=""
+SPEC_PATHS=()
 
 usage() {
   cat <<EOF
-Usage: tools/install_envs [--force] [--prune] [--only env1,env2,...]
+Usage:
+  tools/install_envs.sh [--force] [--prune] [--only env1,env2,...]
+  tools/install_envs.sh [--force] [--prune] [--only env1,env2,...] SPEC.yml [SPEC2.yml ...]
 
-Build/update Conda envs from env specs in:
-  - $MODULE_SPECS_DIR/*.yml
-  - $PIPE_SPECS_DIR/*.yml
-  - $PKG_SPECS_GLOB
+Behavior:
+  - With *no* SPEC paths:
+      Build/update Conda envs from env specs in:
+        - $MODULE_SPECS_DIR/*.yml
+        - $PIPE_SPECS_DIR/*.yml
+  - With one or more SPEC paths:
+      Build/update envs *only* from those YAML files or directories,
+      regardless of where they live on disk.
 
 Supported spec formats:
   1) Plain Conda env YAML:
@@ -82,7 +88,7 @@ Supported spec formats:
          channels: [...]
          dependencies: [...]
 
-Behavior:
+Behavior details:
   - Idempotent via hash of each spec (+ env_name/name + conda major).
   - Creates/updates env prefix under: $ENV_PREFIX_ROOT/<env_name>/
   - Stores hashes under: $HASH_DIR/<env_name>.sha256
@@ -90,7 +96,7 @@ Behavior:
 Options:
   --force           Rebuild all envs regardless of hash.
   --prune           Pass --prune to 'conda env update' (remove extras).
-  --only a,b,c      Only process these env_name values.
+  --only a,b,c      Only process these env_name values (whether scanning or SPEC paths).
 EOF
 }
 
@@ -100,7 +106,23 @@ while [[ $# -gt 0 ]]; do
     --prune) PRUNE=1; shift;;
     --only)  ONLY_LIST="$2"; shift 2;;
     -h|--help) usage; exit 0;;
-    *) echo "Unknown option: $1" >&2; usage; exit 2;;
+    --)
+      shift
+      while [[ $# -gt 0 ]]; do
+        SPEC_PATHS+=("$1")
+        shift
+      done
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage
+      exit 2
+      ;;
+    *)
+      # Positional  treat as a spec path (file or directory)
+      SPEC_PATHS+=("$1")
+      shift
+      ;;
   esac
 done
 
@@ -164,8 +186,12 @@ spec_hash() { # spec env_name kind
   fi
   local conda_major
   conda_major="$("$CONDA_BIN" --version | awk '{print $3}' | cut -d. -f1)"
-  { echo "ENV_NAME=$env_name"; echo "CONDA_MAJOR=$conda_major"; echo "KIND=$kind"; cat "$tmp"; } \
-    | sha256sum | awk '{print $1}'
+  {
+    echo "ENV_NAME=$env_name"
+    echo "CONDA_MAJOR=$conda_major"
+    echo "KIND=$kind"
+    cat "$tmp"
+  } | sha256sum | awk '{print $1}'
   rm -f "$tmp"
 }
 
@@ -207,20 +233,18 @@ process_spec() { # spec file
     return 0
   fi
 
-   local tmp; tmp="$(mktemp --suffix=.yml)"
+  local tmp; tmp="$(mktemp --suffix=.yml)"
   if [[ "$kind" == "embedded" ]]; then
     emit_env_block_embedded "$spec" "$tmp"
   else
     emit_env_block_plain "$spec" "$tmp"
   fi
 
-
   if [[ ! -s "$tmp" ]]; then
     echo "[error] env block appeared empty for: $spec" >&2
     rm -f "$tmp"
     return 1
   fi
-
 
   if [[ -d "$prefix" ]]; then
     echo "[update] $env_name @ $prefix"
@@ -234,31 +258,36 @@ process_spec() { # spec file
     "$CONDA_BIN" env create "${ENV_SPEC_ARGS[@]}" -p "$prefix" -f "$tmp"
   fi
 
-
   echo "$new_hash" > "$hash_file"
   rm -f "$tmp"
 }
 
 # -------------------- Scan & build ------------------------
-# Modules
-if [[ -d "$MODULE_SPECS_DIR" ]]; then
-  find "$MODULE_SPECS_DIR" -maxdepth 1 -type f -name '*.yml' ! -name '.*' \
-    | while read -r spec; do process_spec "$spec"; done
+if [[ ${#SPEC_PATHS[@]} -gt 0 ]]; then
+  # Explicit paths mode (files or dirs, anywhere)
+  for path in "${SPEC_PATHS[@]}"; do
+    if [[ -d "$path" ]]; then
+      find "$path" -type f -name '*.yml' ! -name '.*' \
+        | while read -r spec; do process_spec "$spec"; done
+    else
+      process_spec "$path"
+    fi
+  done
 else
-  echo "[info] No module env specs dir: $MODULE_SPECS_DIR"
-fi
+  # Default scanning mode: modules + pipelines in the repo
+  if [[ -d "$MODULE_SPECS_DIR" ]]; then
+    find "$MODULE_SPECS_DIR" -maxdepth 1 -type f -name '*.yml' ! -name '.*' \
+      | while read -r spec; do process_spec "$spec"; done
+  else
+    echo "[info] No module env specs dir: $MODULE_SPECS_DIR"
+  fi
 
-# Pipelines
-if [[ -d "$PIPE_SPECS_DIR" ]]; then
-  find "$PIPE_SPECS_DIR" -maxdepth 1 -type f -name '*.yml' ! -name '.*' \
-    | while read -r spec; do process_spec "$spec"; done
-else
-  echo "[info] No pipeline env specs dir: $PIPE_SPECS_DIR"
+  if [[ -d "$PIPE_SPECS_DIR" ]]; then
+    find "$PIPE_SPECS_DIR" -maxdepth 1 -type f -name '*.yml' ! -name '.*' \
+      | while read -r spec; do process_spec "$spec"; done
+  else
+    echo "[info] No pipeline env specs dir: $PIPE_SPECS_DIR"
+  fi
 fi
-
-# Packages
-for spec in $PKG_SPECS_GLOB; do
-  [[ -f "$spec" ]] && process_spec "$spec"
-done
 
 echo "Done. Envs live under: $ENV_PREFIX_ROOT"

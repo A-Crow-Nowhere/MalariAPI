@@ -1,0 +1,268 @@
+{
+  "name": "vcftools",
+  "version": "0.1.17",
+  "build": "pl5321h077b44d_0",
+  "build_number": 0,
+  "channel": "https://conda.anaconda.org/bioconda/linux-64",
+  "subdir": "linux-64",
+  "fn": "vcftools-0.1.17-pl5321h077b44d_0.tar.bz2",
+  "md5": "6c17bbbde44d7b4b37339e9a76d9f1be",
+  "url": "https://conda.anaconda.org/bioconda/linux-64/vcftools-0.1.17-pl5321h077b44d_0.tar.bz2",
+  "sha256": "5282687263909d66bff5c4569e1a84d707369c71d97dd05b4fe7503d57ea451e",
+  "depends": [
+    "libgcc >=13",
+    "libstdcxx >=13",
+    "libzlib >=1.3.1,<2.0a0",
+    "perl >=5.32.1,<5.33.0a0 *_perl5"
+  ],
+  "constrains": [],
+  "license": "LGPL-3.0-only",
+  "timestamp": 1747275140000,
+  "size": 494659,
+  "requested_spec": "vcftools",
+  "package_tarball_full_path": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/vcftools-0.1.17-pl5321h077b44d_0.tar.bz2",
+  "extracted_package_dir": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/vcftools-0.1.17-pl5321h077b44d_0",
+  "files": [
+    "bin/fill-aa",
+    "bin/fill-an-ac",
+    "bin/fill-fs",
+    "bin/fill-ref-md5",
+    "bin/vcf-annotate",
+    "bin/vcf-compare",
+    "bin/vcf-concat",
+    "bin/vcf-consensus",
+    "bin/vcf-contrast",
+    "bin/vcf-convert",
+    "bin/vcf-fix-newlines",
+    "bin/vcf-fix-ploidy",
+    "bin/vcf-indel-stats",
+    "bin/vcf-isec",
+    "bin/vcf-merge",
+    "bin/vcf-phased-join",
+    "bin/vcf-query",
+    "bin/vcf-shuffle-cols",
+    "bin/vcf-sort",
+    "bin/vcf-stats",
+    "bin/vcf-subset",
+    "bin/vcf-to-tab",
+    "bin/vcf-tstv",
+    "bin/vcf-validator",
+    "bin/vcftools",
+    "lib/perl5/site_perl/FaSlice.pm",
+    "lib/perl5/site_perl/Vcf.pm",
+    "lib/perl5/site_perl/VcfStats.pm",
+    "share/man/man1/vcftools.1"
+  ],
+  "paths_data": {
+    "paths_version": 1,
+    "paths": [
+      {
+        "_path": "bin/fill-aa",
+        "path_type": "hardlink",
+        "sha256": "134e2eefb6678879b1afd3ed05e4754b887774a540ed80953280181ed19ef7b4",
+        "size_in_bytes": 6104,
+        "sha256_in_prefix": "134e2eefb6678879b1afd3ed05e4754b887774a540ed80953280181ed19ef7b4"
+      },
+      {
+        "_path": "bin/fill-an-ac",
+        "path_type": "hardlink",
+        "sha256": "5bd4c6e28906ecb13861742c4815ed2770e6de5d09c90c44c3f81560a43a734d",
+        "size_in_bytes": 1261,
+        "sha256_in_prefix": "5bd4c6e28906ecb13861742c4815ed2770e6de5d09c90c44c3f81560a43a734d"
+      },
+      {
+        "_path": "bin/fill-fs",
+        "path_type": "hardlink",
+        "sha256": "e9766be5e58ad992ae7db269400f870c61c0c073f381c8a34a95c10f6bdb9add",
+        "size_in_bytes": 8068,
+        "sha256_in_prefix": "e9766be5e58ad992ae7db269400f870c61c0c073f381c8a34a95c10f6bdb9add"
+      },
+      {
+        "_path": "bin/fill-ref-md5",
+        "path_type": "hardlink",
+        "sha256": "62d3612d8b6ed30d06948431446ae00be3eb56d2fdacfb00d23397bd0cb15e63",
+        "size_in_bytes": 6567,
+        "sha256_in_prefix": "62d3612d8b6ed30d06948431446ae00be3eb56d2fdacfb00d23397bd0cb15e63"
+      },
+      {
+        "_path": "bin/vcf-annotate",
+        "path_type": "hardlink",
+        "sha256": "7ff23495cda973022d9e14ab4375ab8956bc6633833d73a26c0ff5de1e43eb6f",
+        "size_in_bytes": 51253,
+        "sha256_in_prefix": "7ff23495cda973022d9e14ab4375ab8956bc6633833d73a26c0ff5de1e43eb6f"
+      },
+      {
+        "_path": "bin/vcf-compare",
+        "path_type": "hardlink",
+        "sha256": "f513159dbea682e268632633aba21f8f1e104b028e56fb1cde2af86c93cb6984",
+        "size_in_bytes": 57390,
+        "sha256_in_prefix": "f513159dbea682e268632633aba21f8f1e104b028e56fb1cde2af86c93cb6984"
+      },
+      {
+        "_path": "bin/vcf-concat",
+        "path_type": "hardlink",
+        "sha256": "346bdab1c128db75ade044fbe469748328f896beca839ab65ab6902cfe857a66",
+        "size_in_bytes": 10952,
+        "sha256_in_prefix": "346bdab1c128db75ade044fbe469748328f896beca839ab65ab6902cfe857a66"
+      },
+      {
+        "_path": "bin/vcf-consensus",
+        "path_type": "hardlink",
+        "sha256": "30134d07ca1ef02bcec0f1bae7084d0cb236c3f41683981dd7fa79e5c573f819",
+        "size_in_bytes": 9226,
+        "sha256_in_prefix": "30134d07ca1ef02bcec0f1bae7084d0cb236c3f41683981dd7fa79e5c573f819"
+      },
+      {
+        "_path": "bin/vcf-contrast",
+        "path_type": "hardlink",
+        "sha256": "ef6bb6695e542bc4b3fd7198befeb4d8aa65be35ae4a47f39d986aded6e60447",
+        "size_in_bytes": 8797,
+        "sha256_in_prefix": "ef6bb6695e542bc4b3fd7198befeb4d8aa65be35ae4a47f39d986aded6e60447"
+      },
+      {
+        "_path": "bin/vcf-convert",
+        "path_type": "hardlink",
+        "sha256": "51f1afcd17926584635def1a16c21098f8717fa55a832241ef074556f0dc4b72",
+        "size_in_bytes": 6171,
+        "sha256_in_prefix": "51f1afcd17926584635def1a16c21098f8717fa55a832241ef074556f0dc4b72"
+      },
+      {
+        "_path": "bin/vcf-fix-newlines",
+        "path_type": "hardlink",
+        "sha256": "63d2462f4f0e11729af26cf934d20216309cce4fd3bf004319350694f00b8ac7",
+        "size_in_bytes": 2298,
+        "sha256_in_prefix": "63d2462f4f0e11729af26cf934d20216309cce4fd3bf004319350694f00b8ac7"
+      },
+      {
+        "_path": "bin/vcf-fix-ploidy",
+        "path_type": "hardlink",
+        "sha256": "40e184a8790376232297c4869f04137fd2ed910b7919acc28ce6de8e9dc1c5c4",
+        "size_in_bytes": 10549,
+        "sha256_in_prefix": "40e184a8790376232297c4869f04137fd2ed910b7919acc28ce6de8e9dc1c5c4"
+      },
+      {
+        "_path": "bin/vcf-indel-stats",
+        "path_type": "hardlink",
+        "sha256": "4c1210ffb570c56a3e402ccb1142e400d57a7621d41673f3096867e9ba3f71c7",
+        "size_in_bytes": 4376,
+        "sha256_in_prefix": "4c1210ffb570c56a3e402ccb1142e400d57a7621d41673f3096867e9ba3f71c7"
+      },
+      {
+        "_path": "bin/vcf-isec",
+        "path_type": "hardlink",
+        "sha256": "08d32c50b968fac1d81951186f35230f09719ade81979bbea21755d7810826f1",
+        "size_in_bytes": 21173,
+        "sha256_in_prefix": "08d32c50b968fac1d81951186f35230f09719ade81979bbea21755d7810826f1"
+      },
+      {
+        "_path": "bin/vcf-merge",
+        "path_type": "hardlink",
+        "sha256": "76e0038a197e7423fdb79751f4bfbf6fe58e6c519a71da89ff70455f11f5d5d2",
+        "size_in_bytes": 22988,
+        "sha256_in_prefix": "76e0038a197e7423fdb79751f4bfbf6fe58e6c519a71da89ff70455f11f5d5d2"
+      },
+      {
+        "_path": "bin/vcf-phased-join",
+        "path_type": "hardlink",
+        "sha256": "a37533bfaa6c80217a65fa82f98e047bba0d2dcc76fccae74521a47d74bfc5d2",
+        "size_in_bytes": 23234,
+        "sha256_in_prefix": "a37533bfaa6c80217a65fa82f98e047bba0d2dcc76fccae74521a47d74bfc5d2"
+      },
+      {
+        "_path": "bin/vcf-query",
+        "path_type": "hardlink",
+        "sha256": "bda573a43d061030e056171cafdb850732024a2553fc7f11b2435bd39cb42f07",
+        "size_in_bytes": 15832,
+        "sha256_in_prefix": "bda573a43d061030e056171cafdb850732024a2553fc7f11b2435bd39cb42f07"
+      },
+      {
+        "_path": "bin/vcf-shuffle-cols",
+        "path_type": "hardlink",
+        "sha256": "cd8c4d0989d49086a0b48ae3d7ecba02bb0d2e3fa97137431de9596a01ab59b6",
+        "size_in_bytes": 2301,
+        "sha256_in_prefix": "cd8c4d0989d49086a0b48ae3d7ecba02bb0d2e3fa97137431de9596a01ab59b6"
+      },
+      {
+        "_path": "bin/vcf-sort",
+        "path_type": "hardlink",
+        "sha256": "0ec86e0ee3c07cc5c45abcd702ce916d0412b4a7cb53b5beeec438cb63b9e000",
+        "size_in_bytes": 3310,
+        "sha256_in_prefix": "0ec86e0ee3c07cc5c45abcd702ce916d0412b4a7cb53b5beeec438cb63b9e000"
+      },
+      {
+        "_path": "bin/vcf-stats",
+        "path_type": "hardlink",
+        "sha256": "cf837f4c512bbe85253c58209c963a81b4aa2d2609756b8456826ff08b07295f",
+        "size_in_bytes": 4874,
+        "sha256_in_prefix": "cf837f4c512bbe85253c58209c963a81b4aa2d2609756b8456826ff08b07295f"
+      },
+      {
+        "_path": "bin/vcf-subset",
+        "path_type": "hardlink",
+        "sha256": "22a95d1e52903207fcb7295c5e46efd9409667c01beef7a3fa9ed7d9579e9aff",
+        "size_in_bytes": 7706,
+        "sha256_in_prefix": "22a95d1e52903207fcb7295c5e46efd9409667c01beef7a3fa9ed7d9579e9aff"
+      },
+      {
+        "_path": "bin/vcf-to-tab",
+        "path_type": "hardlink",
+        "sha256": "89c74dc1fe70ce2428ba5b155eed91520707ef538ea612a9785252e19e66f745",
+        "size_in_bytes": 2543,
+        "sha256_in_prefix": "89c74dc1fe70ce2428ba5b155eed91520707ef538ea612a9785252e19e66f745"
+      },
+      {
+        "_path": "bin/vcf-tstv",
+        "path_type": "hardlink",
+        "sha256": "92e87e383336499294e990911d60c610b9ee8d7f8b0b0f7791c52ff609b077cc",
+        "size_in_bytes": 1820,
+        "sha256_in_prefix": "92e87e383336499294e990911d60c610b9ee8d7f8b0b0f7791c52ff609b077cc"
+      },
+      {
+        "_path": "bin/vcf-validator",
+        "path_type": "hardlink",
+        "sha256": "7d5ab986c4ac710f4b2479a991eebb89a67a33ae3b403551b23ee2299b470eed",
+        "size_in_bytes": 3353,
+        "sha256_in_prefix": "7d5ab986c4ac710f4b2479a991eebb89a67a33ae3b403551b23ee2299b470eed"
+      },
+      {
+        "_path": "bin/vcftools",
+        "path_type": "hardlink",
+        "sha256": "8950bcdc1900e6c86df93c39502d46752ec5bdaa01426b86f56cbe94c14fae15",
+        "size_in_bytes": 1020840,
+        "sha256_in_prefix": "8950bcdc1900e6c86df93c39502d46752ec5bdaa01426b86f56cbe94c14fae15"
+      },
+      {
+        "_path": "lib/perl5/site_perl/FaSlice.pm",
+        "path_type": "hardlink",
+        "sha256": "1601d9873e47aa14a2e53c391ff59b77daddf5dee16687e27eccca42a4cf8e97",
+        "size_in_bytes": 6724,
+        "sha256_in_prefix": "1601d9873e47aa14a2e53c391ff59b77daddf5dee16687e27eccca42a4cf8e97"
+      },
+      {
+        "_path": "lib/perl5/site_perl/Vcf.pm",
+        "path_type": "hardlink",
+        "sha256": "b1f96016f9e7749af42c8df97f5070389dce377913ab5e31acaacf63acb0dcd4",
+        "size_in_bytes": 107598,
+        "sha256_in_prefix": "b1f96016f9e7749af42c8df97f5070389dce377913ab5e31acaacf63acb0dcd4"
+      },
+      {
+        "_path": "lib/perl5/site_perl/VcfStats.pm",
+        "path_type": "hardlink",
+        "sha256": "53e14f9efe99a8b0fc5810e36edb7ff33790928d4e198690d038e2dfa71d3ce8",
+        "size_in_bytes": 18147,
+        "sha256_in_prefix": "53e14f9efe99a8b0fc5810e36edb7ff33790928d4e198690d038e2dfa71d3ce8"
+      },
+      {
+        "_path": "share/man/man1/vcftools.1",
+        "path_type": "hardlink",
+        "sha256": "71513dcf949e0314766b38cfc4570066bc02117773b69376d3751b602d95a1a8",
+        "size_in_bytes": 31469,
+        "sha256_in_prefix": "71513dcf949e0314766b38cfc4570066bc02117773b69376d3751b602d95a1a8"
+      }
+    ]
+  },
+  "link": {
+    "source": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/vcftools-0.1.17-pl5321h077b44d_0",
+    "type": 1
+  }
+}

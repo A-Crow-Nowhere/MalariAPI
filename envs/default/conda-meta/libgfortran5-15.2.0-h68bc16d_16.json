@@ -1,0 +1,66 @@
+{
+  "name": "libgfortran5",
+  "version": "15.2.0",
+  "build": "h68bc16d_16",
+  "build_number": 16,
+  "channel": "https://conda.anaconda.org/conda-forge/noarch",
+  "subdir": "linux-64",
+  "fn": "libgfortran5-15.2.0-h68bc16d_16.conda",
+  "md5": "39183d4e0c05609fd65f130633194e37",
+  "url": "https://conda.anaconda.org/conda-forge/linux-64/libgfortran5-15.2.0-h68bc16d_16.conda",
+  "sha256": "d0e974ebc937c67ae37f07a28edace978e01dc0f44ee02f29ab8a16004b8148b",
+  "depends": [
+    "__glibc >=2.17,<3.0.a0",
+    "libgcc >=15.2.0"
+  ],
+  "constrains": [
+    "libgfortran 15.2.0"
+  ],
+  "license": "GPL-3.0-only WITH GCC-exception-3.1",
+  "timestamp": 1765256819000,
+  "size": 2480559,
+  "requested_spec": "None",
+  "package_tarball_full_path": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libgfortran5-15.2.0-h68bc16d_16.conda",
+  "extracted_package_dir": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libgfortran5-15.2.0-h68bc16d_16",
+  "files": [
+    "lib/libgfortran.so",
+    "lib/libgfortran.so.5",
+    "lib/libgfortran.so.5.0.0",
+    "share/licenses/libgfortran/RUNTIME.LIBRARY.EXCEPTION"
+  ],
+  "paths_data": {
+    "paths_version": 1,
+    "paths": [
+      {
+        "_path": "lib/libgfortran.so",
+        "path_type": "softlink",
+        "sha256": "0c49bb368e7fca1848c7d263f4afb5493359774a5a318ffb039e29f1403111df",
+        "size_in_bytes": 11324144
+      },
+      {
+        "_path": "lib/libgfortran.so.5",
+        "path_type": "softlink",
+        "sha256": "0c49bb368e7fca1848c7d263f4afb5493359774a5a318ffb039e29f1403111df",
+        "size_in_bytes": 11324144
+      },
+      {
+        "_path": "lib/libgfortran.so.5.0.0",
+        "path_type": "hardlink",
+        "sha256": "0c49bb368e7fca1848c7d263f4afb5493359774a5a318ffb039e29f1403111df",
+        "size_in_bytes": 11324144,
+        "sha256_in_prefix": "0c49bb368e7fca1848c7d263f4afb5493359774a5a318ffb039e29f1403111df"
+      },
+      {
+        "_path": "share/licenses/libgfortran/RUNTIME.LIBRARY.EXCEPTION",
+        "path_type": "hardlink",
+        "sha256": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74",
+        "size_in_bytes": 3324,
+        "sha256_in_prefix": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74"
+      }
+    ]
+  },
+  "link": {
+    "source": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libgfortran5-15.2.0-h68bc16d_16",
+    "type": 1
+  }
+}

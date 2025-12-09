@@ -1,0 +1,83 @@
+{
+  "name": "libsqlite",
+  "version": "3.51.1",
+  "build": "h0c1763c_0",
+  "build_number": 0,
+  "channel": "https://conda.anaconda.org/conda-forge/noarch",
+  "subdir": "linux-64",
+  "fn": "libsqlite-3.51.1-h0c1763c_0.conda",
+  "md5": "2e1b84d273b01835256e53fd938de355",
+  "url": "https://conda.anaconda.org/conda-forge/linux-64/libsqlite-3.51.1-h0c1763c_0.conda",
+  "sha256": "6f0e8a812e8e33a4d8b7a0e595efe28373080d27b78ee4828aa4f6649a088454",
+  "depends": [
+    "__glibc >=2.17,<3.0.a0",
+    "libgcc >=14",
+    "libzlib >=1.3.1,<2.0a0"
+  ],
+  "constrains": [],
+  "license": "blessing",
+  "timestamp": 1764359444000,
+  "size": 938979,
+  "requested_spec": "None",
+  "package_tarball_full_path": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libsqlite-3.51.1-h0c1763c_0.conda",
+  "extracted_package_dir": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libsqlite-3.51.1-h0c1763c_0",
+  "files": [
+    "include/sqlite3.h",
+    "include/sqlite3ext.h",
+    "lib/libsqlite3.so",
+    "lib/libsqlite3.so.0",
+    "lib/libsqlite3.so.3.51.1",
+    "lib/pkgconfig/sqlite3.pc"
+  ],
+  "paths_data": {
+    "paths_version": 1,
+    "paths": [
+      {
+        "_path": "include/sqlite3.h",
+        "path_type": "hardlink",
+        "sha256": "4340a24cda7bc436d62459c3c5237f67b9ab716ddca872faf8052d0ce0d97119",
+        "size_in_bytes": 671786,
+        "sha256_in_prefix": "4340a24cda7bc436d62459c3c5237f67b9ab716ddca872faf8052d0ce0d97119"
+      },
+      {
+        "_path": "include/sqlite3ext.h",
+        "path_type": "hardlink",
+        "sha256": "ea81fb7bd05882e0e0b92c4d60f677b205f7f1fbf085f218b12f0b5b3f0b9e48",
+        "size_in_bytes": 38632,
+        "sha256_in_prefix": "ea81fb7bd05882e0e0b92c4d60f677b205f7f1fbf085f218b12f0b5b3f0b9e48"
+      },
+      {
+        "_path": "lib/libsqlite3.so",
+        "path_type": "softlink",
+        "sha256": "6d63ae1656df3c47465e9dc7f33b2e2f746494dcc88f460d33c3a333b07b6c1f",
+        "size_in_bytes": 1731112
+      },
+      {
+        "_path": "lib/libsqlite3.so.0",
+        "path_type": "softlink",
+        "sha256": "6d63ae1656df3c47465e9dc7f33b2e2f746494dcc88f460d33c3a333b07b6c1f",
+        "size_in_bytes": 1731112
+      },
+      {
+        "_path": "lib/libsqlite3.so.3.51.1",
+        "path_type": "hardlink",
+        "sha256": "6d63ae1656df3c47465e9dc7f33b2e2f746494dcc88f460d33c3a333b07b6c1f",
+        "size_in_bytes": 1731112,
+        "sha256_in_prefix": "6d63ae1656df3c47465e9dc7f33b2e2f746494dcc88f460d33c3a333b07b6c1f"
+      },
+      {
+        "_path": "lib/pkgconfig/sqlite3.pc",
+        "prefix_placeholder": "/home/conda/feedstock_root/build_artifacts/sqlite-split_1764359124901/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehol",
+        "file_mode": "text",
+        "path_type": "hardlink",
+        "sha256": "2c9de3e7b67592be1b87f710749419b90a7a59ef8f8c2178f56abccd05bb2f6b",
+        "size_in_bytes": 531,
+        "sha256_in_prefix": "398e85db56ac5016fb5ac8f0483cf0753f1bb59f152d4c490c4573ddacd17b3b"
+      }
+    ]
+  },
+  "link": {
+    "source": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libsqlite-3.51.1-h0c1763c_0",
+    "type": 1
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "libgfortran",
+  "version": "15.2.0",
+  "build": "h69a702a_16",
+  "build_number": 16,
+  "channel": "https://conda.anaconda.org/conda-forge/noarch",
+  "subdir": "linux-64",
+  "fn": "libgfortran-15.2.0-h69a702a_16.conda",
+  "md5": "40d9b534410403c821ff64f00d0adc22",
+  "url": "https://conda.anaconda.org/conda-forge/linux-64/libgfortran-15.2.0-h69a702a_16.conda",
+  "sha256": "8a7b01e1ee1c462ad243524d76099e7174ebdd94ff045fe3e9b1e58db196463b",
+  "depends": [
+    "libgfortran5 15.2.0 h68bc16d_16"
+  ],
+  "constrains": [
+    "libgfortran-ng ==15.2.0 *_16"
+  ],
+  "license": "GPL-3.0-only WITH GCC-exception-3.1",
+  "timestamp": 1765256845000,
+  "size": 27215,
+  "requested_spec": "None",
+  "package_tarball_full_path": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libgfortran-15.2.0-h69a702a_16.conda",
+  "extracted_package_dir": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libgfortran-15.2.0-h69a702a_16",
+  "files": [],
+  "paths_data": {
+    "paths_version": 1,
+    "paths": []
+  },
+  "link": {
+    "source": "/home/a-crow-nowhere/MalariAPI/tools/miniconda3/pkgs/libgfortran-15.2.0-h69a702a_16",
+    "type": 1
+  }
+}

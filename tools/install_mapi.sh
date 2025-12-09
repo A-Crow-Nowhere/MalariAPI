@@ -300,11 +300,28 @@ else
   BASE_YAML="$ROOT/envs/base.yml"
   if [[ -f "$BASE_YAML" ]]; then
     say "==> Updating base environment from $BASE_YAML"
+    # If you have CONDA_ROOT available, this is the most explicit:
+    #   "$CONDA_ROOT/bin/conda" env update -p "$CONDA_ROOT" -f "$BASE_YAML" --prune
+    # Using -n base is also fine:
     conda env update -n base -f "$BASE_YAML" --prune
   else
     say "==> No base.yml found at $BASE_YAML; skipping base env update."
   fi
 fi
+mv ~/MalariAPI/envs/base.yml ~/MalariAPI/envs/.base.yml
+
+
+# Add MAPI envs to Conda search path
+if ! grep -q 'CONDA_ENVS_DIRS' "$HOME/.bashrc"; then
+  echo 'export CONDA_ENVS_DIRS="$HOME/MalariAPI/envs"' >> "$HOME/.bashrc"
+  echo "[installer] Added CONDA_ENVS_DIRS to ~/.bashrc"
+else
+  echo "[installer] CONDA_ENVS_DIRS already configured in ~/.bashrc"
+fi
+
+bash ~/MalariAPI/tools/install_envs.sh ~/MalariAPI/envs/default.yml
+conda activate defualt
+
 
 # --- 6) Post-install guidance --------------------------------------------------
 cat <<'NOTE'
