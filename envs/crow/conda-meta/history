@@ -1,3 +1,0 @@
-==> 2025-11-21 15:26:11 <==
-# cmd: /home/a-crow-nowhere/MalariAPI/tools/miniconda3/bin/conda env create --environment-spec environment.yml -p /home/a-crow-nowhere/MalariAPI/envs/crow -f /tmp/tmp.ya5PUFINUQ.yml
-# conda version: 25.9.1
