@@ -1,0 +1,23 @@
+name: default
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # core HTS stack
+  - samtools
+  - htslib
+  - bcftools
+
+  # bed / interval tools
+  - bedtools
+
+  # VCF utilities
+  - vcftools
+
+  # simulators / legacy converters
+  - wgsim
+
+  # scripting
+  - perl
+  - python >=3.10
