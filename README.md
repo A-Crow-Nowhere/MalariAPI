@@ -1,4 +1,4 @@
-# Modular Application & Pipeline Infrastructure 
+# Modular Application & Pipeline Infrastructure (MAPI)
 
 **(MAPI)** is a lightweight, human-centered workflow framework for bioinformatics, designed to make complex analyses readable, reproducible, and accessible — locally, on HPC, and in low-resource environments.
 
