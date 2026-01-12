@@ -455,7 +455,7 @@ out_path(){ printf "%s/%s.%s.%s\n" "$OUTDIR" "$sample_prefix" "$DEFAULT_TAG" "$1
 
 cp "$IN1" "$(out_path txt)"
 ```
-## FOR TO SEE THE FULL CAPABILITIES OF MAPI MODULES [SEE THIS TECHNICAL EXAMPLE](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/Full_Example_module)
+## TO SEE THE FULL CAPABILITIES OF MAPI MODULES [SEE THIS TECHNICAL EXAMPLE](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/Full_Example_module)
 ---
 
 ## Final advice
