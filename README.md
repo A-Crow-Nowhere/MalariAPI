@@ -7,8 +7,8 @@ MAPI is not just about running pipelines. It is about reducing friction at every
 ---
 
    ### Set up base MAPI
-   1. [Set up a functional environment](docs/setup_MalariAPI.md) 
-   2. [Install base MAPI]
+   1. [Get your computer ready](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/setupyourcomputer.md)
+   2. [Install base MAPI](docs/setup_MalariAPI.md)
    3. [Beginner user guide for MAPI]
    ### Set up advanced MAPI
    4. [Contributer user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/contributer.md)
