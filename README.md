@@ -22,20 +22,9 @@ MAPI is not just about running pipelines. It is about reducing friction at every
 
 ### Human-readable, predictable structure
 
-MAPI enforces a clear and discoverable project layout:
-
-- Modules live in one place  
-- Pipelines live in one place  
-- Environments live in one place  
-- Genomes and references live in one place  
-
-You never have to guess:
-- where outputs are written  
-- which environment was used  
-- how a result was produced  
-
+MAPI enforces a clear and discoverable project layout,
 This makes projects easier to understand, debug, and share — even months later.
-
+To increase speed and de-clutter workflows, MAPI includes sever quality of life features.
 ---
 
 ### MAPI Sample Folders (MSFs): zero-path workflows
@@ -55,19 +44,13 @@ When working inside an MSF:
 - Outputs are automatically written to the correct backend folder
 - File naming follows a consistent, machine-readable convention
 
-Example:
-
-```bash
-mapi modules bwa --r1 reads_R1.fastq.gz --r2 reads_R2.fastq.gz
-```
-
 No long paths. No guessing where results went.
+
+[Look at a minimal **MSF** workflow example here](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/MSF.example.md)
 
 ---
 
-### Header-driven modules (less code, fewer mistakes)
-
-Traditional bioinformatics scripts require manual argument parsing and duplicated documentation.
+### Idempotent modules (less code, fewer mistakes)
 
 MAPI replaces this with a single metadata header that declares:
 
@@ -81,39 +64,27 @@ From this header, MAPI automatically builds the argument parser, validates requi
 
 ---
 
-### Conda environments without the pain
-
-Each module or pipeline declares the environment it needs.
-
-MAPI automatically runs code inside the correct environment and never requires users to manually activate environments.
-
----
-
-### Seamless HPC passthrough
+### Seamless HPC (High performance computer/cluster) passthrough
 
 MAPI treats HPC clusters as first-class citizens.
 
 Local and remote workflows use the same commands, and path tokens like `[scratch]` and `[home]` expand automatically.
 
+[Look at a minimal **HPC** workflow example here](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/HPC.example.md)
 ---
 
 ### Git integration without Git expertise
 
-MAPI includes safe Git wrappers designed for scientists.
+MAPI includes safe Git wrappers designed for lab-based scientists (and computer scientists).
 
 You can collaborate without becoming a Git expert.
-
----
-
-### Resource awareness (genomes, indexes, models)
-
-MAPI makes external dependencies explicit and reproducible by design.
 
 ---
 
 ### Backwards compatibility by design
 
 Any executable script can be run as a module. Migration is gradual and opt-in.
+All other organizational bennefits (besides MSFs) will still apply. 
 
 ---
 
@@ -123,11 +94,6 @@ MAPI is suitable for teaching, collaboration, and institutions without dedicated
 
 ---
 
-### A foundation for AI-assisted science
-
-MAPI is designed to grow with AI, not be replaced by it.
-
----
 
 ## In short
 
