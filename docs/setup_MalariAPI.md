@@ -1,19 +1,3 @@
-# Welcome to MalariAPI (MAPI)
-_An all in one, beginner friendly, and easy to use system for compuational investigations of malaria._ 
-Because the organisms that cause malaria (and releated apicomplexan parasites) are so complex, tools that are designed for use in broader contexts are not neccisarily optimzed for malaria. Here, every module and pipeline has been pre-optimized for specific parameters, allowing for a precise and starndardized workflow. MAPI includes steps for setting up a ready-to-use bioninformatics workspace; easy enough for coding beginners, but robust and flexible enough to be implemented by verteran bioinformaticians. 
-## Quick Links:
-   ### Set up base MAPI
-   1. [Set up a functional environment](docs/setup_MalariAPI.md) 
-   2. [Install base MAPI]
-   3. [Beginner user guide for MAPI]
-   ### Set up advanced MAPI
-   4. [Contributer user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/contributer.md)
-   5. [Set up job subisison and sycing to a high performance computing (HPC) cluster](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/HPC_install.md)   
-   6. [Creating modules and pipelines](docs/wrapping_tools.md)
-   ### Helpful scripts
-   7. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
-
-
 
 ## Install MalariAPI (MAPI)
 
@@ -39,11 +23,11 @@ Pick the box that matches what you did and what you want.
 > First install will take several minutes. 
 
 <p align="center">
-  <img src="docs/installOptions_cropped-1.png" width="11000">
+  <img src="installOptions_cropped-1.png" width="11000">
 </p>
 
 <p align="center">
-  <a href="docs/installOptions_cropped.pdf">Download PDF (copy-paste friendly)</a>
+  <a href="installOptions_cropped.pdf">Download PDF (copy-paste friendly)</a>
 </p>
 
 > If in doubt, or for more novice users, select the first in either column. All features can be added in aftwards by running the installer again; as in these examples.
