@@ -1,7 +1,11 @@
-# Welcome to MalariAPI (MAPI)
-_An all in one, beginner friendly, and easy to use system for compuational investigations of malaria._ 
-Because the organisms that cause malaria (and releated apicomplexan parasites) are so complex, tools that are designed for use in broader contexts are not neccisarily optimzed for malaria. Here, every module and pipeline has been pre-optimized for specific parameters, allowing for a precise and starndardized workflow. MAPI includes steps for setting up a ready-to-use bioninformatics workspace; easy enough for coding beginners, but robust and flexible enough to be implemented by verteran bioinformaticians. 
-## Quick Links:
+# Making 
+
+**(MAPI)** is a lightweight, human-centered workflow framework for bioinformatics, designed to make complex analyses readable, reproducible, and accessible — locally, on HPC, and in low-resource environments.
+
+MAPI is not just about running pipelines. It is about reducing friction at every stage of scientific computation.
+
+---
+
    ### Set up base MAPI
    1. [Set up a functional environment](docs/setup_MalariAPI.md) 
    2. [Install base MAPI]
@@ -14,107 +18,117 @@ Because the organisms that cause malaria (and releated apicomplexan parasites) a
    7. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
 
 
+## Why MAPI?
 
-## Install MalariAPI (MAPI)
+### Human-readable, predictable structure
 
-Below, we outined a streamlined setup process for MalariAPI, covering both local installation and optional HPC configuration.
-> <ins>Vocab</ins>\
-> repo = "Repository" - the centralized github location that contains the code.\
-> main = The most top level, base truth version of a program (e.g. A-Crow-Nowhere/MalariAPI).\
-> clone = a copy of an upstream repo.\
-> branch = a cloned, but developmentally independent version of a repo.\
-> fork = you can 'fork' a branch - to create a new branch.
+MAPI enforces a clear and discoverable project layout:
 
-### 1. (Optional) Fork the Repository
+- Modules live in one place  
+- Pipelines live in one place  
+- Environments live in one place  
+- Genomes and references live in one place  
 
-If you plan to contribute:
+You never have to guess:
+- where outputs are written  
+- which environment was used  
+- how a result was produced  
 
-1. Visit: https://github.com/A-Crow-Nowhere/MalariAPI
-2. Select "Fork" to create your personal copy.
+This makes projects easier to understand, debug, and share — even months later.
 
-This lets you push to your own fork while still pulling updates from the main repository.
+---
 
-### Choose your installation path
-Pick the box that matches what you did and what you want.
-> First install will take several minutes. 
+### MAPI Sample Folders (MSFs): zero-path workflows
 
-<p align="center">
-  <img src="docs/installOptions_cropped-1.png" width="11000">
-</p>
+MAPI introduces **MAPI Sample Folders (MSFs)**:
 
-<p align="center">
-  <a href="docs/installOptions_cropped.pdf">Download PDF (copy-paste friendly)</a>
-</p>
+```
+mapi-sampleName/
+├── sampleName-output/
+├── input_files.fastq.gz
+└── summary.txt
+```
 
-> If in doubt, or for more novice users, select the first in either column. All features can be added in aftwards by running the installer again; as in these examples.
+When working inside an MSF:
 
-> If using the developer install with a local fork, and do not want to develop against main, choose a different owner name uder the --upstream-owner flag
-#### After any of the above
+- You do not need to type file paths
+- Outputs are automatically written to the correct backend folder
+- File naming follows a consistent, machine-readable convention
+
+Example:
 
 ```bash
-source ~/.bashrc    # or: source ~/.zshrc -- this just refreshes the workspace
-mapi --help
+mapi modules bwa --r1 reads_R1.fastq.gz --r2 reads_R2.fastq.gz
 ```
 
-You are now ready to use or develop MalariAPI.
+No long paths. No guessing where results went.
 
+---
 
-## 4. Install MalariAPI on Your HPC (optional)
+### Header-driven modules (less code, fewer mistakes)
 
-MAPI supports the use of a High Preformance Cluster while operating out of a local environment. This reduces complexity for new users, while ensuring stable running environments, and facilitating an easier (and customizable) coding experience.
+Traditional bioinformatics scripts require manual argument parsing and duplicated documentation.
 
-From your local clone:
+MAPI replaces this with a single metadata header that declares:
 
-```bash
-cd ~/MalariAPI
+- inputs and options  
+- defaults and required arguments  
+- outputs  
+- environments  
+- required resources  
 
-./tools/hpc_install  <the_name_of_your_hpc (or any single word)>  <host_name> <partition> <allocation>
+From this header, MAPI automatically builds the argument parser, validates required inputs, documents usage, and standardizes outputs.
 
-eg:
+---
 
-./tools/hpc_install  <rivanna> <userID@login.hpc.virginia.edu> <standard> <mymalarialab>
+### Conda environments without the pain
 
-```
-Test the connection:
+Each module or pipeline declares the environment it needs.
 
-```bash
-mapi rivanna status
-```
+MAPI automatically runs code inside the correct environment and never requires users to manually activate environments.
 
-A valid response confirms successful HPC setup, should look like a single line:
-```
-'             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)'
-```
+---
 
-## 5. Git Helper Commands in MAPI (optional, but recomended) 
+### Seamless HPC passthrough
 
-Using the MAPI installer automatically wires you in to be able to use github (If username and email are given). MAPI provides simple wrappers for common git operations. 
+MAPI treats HPC clusters as first-class citizens.
 
-```bash
-mapi git update  # Update your local branch from upstream (i.e. from main)
-mapi git upload  # Upload your current branch to your fork (i.e. your devloper environment)
-mapi git switch feature/new_module # Switch or create a branch (if you have access to multiple branches)
-```
+Local and remote workflows use the same commands, and path tokens like `[scratch]` and `[home]` expand automatically.
 
+---
 
-## 6. Build any additional Conda environments as needed with MAPI’s environment tools.
-```bash
-cd ~MalariAPI
-bash ./tools/install_envs    # This will take a while to complete, depending on the number of environments included in your repo's envs/ folder. 
-```
+### Git integration without Git expertise
 
+MAPI includes safe Git wrappers designed for scientists.
 
+You can collaborate without becoming a Git expert.
 
-## 7. Next Steps
+---
 
-List available modules and pipelines:
+### Resource awareness (genomes, indexes, models)
 
-```bash
-mapi 
-```
+MAPI makes external dependencies explicit and reproducible by design.
 
-## Installation Complete
-You now have a fully functional local and HPC installation of MalariAPI.
-Refer to the Contributing section for details on module and pipeline development.
+---
 
+### Backwards compatibility by design
 
+Any executable script can be run as a module. Migration is gradual and opt-in.
+
+---
+
+### Designed for global and low-resource contexts
+
+MAPI is suitable for teaching, collaboration, and institutions without dedicated DevOps support.
+
+---
+
+### A foundation for AI-assisted science
+
+MAPI is designed to grow with AI, not be replaced by it.
+
+---
+
+## In short
+
+MAPI prioritizes clarity, reproducibility, and human usability.
