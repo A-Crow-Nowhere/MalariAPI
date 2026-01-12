@@ -1,0 +1,363 @@
+#!/usr/bin/env bash
+# ======================================================================
+# MAPI_META_BEGIN
+# NAME: bwa_mem
+# SUMMARY: Align FASTQ reads to a reference with BWA-MEM, then sort/index with samtools.
+#
+# ENV:
+#   # MAPI will try ~/MalariAPI/envs/bwa first; if missing, it falls back to default.
+#   primary: bwa
+#   fallback: default
+#
+# OUTPUTS:
+#   # This module produces multiple outputs. The "key" is a unique identifier.
+#   # The "ext" is the file extension.
+#   - key: bwa_bam
+#     ext: bam
+#     description: Sorted alignment BAM
+#   - key: bwa_bam_bai
+#     ext: bai
+#     description: BAM index
+#   - key: bwa_log
+#     ext: log
+#     description: Human-readable run log (commands, versions, inputs)
+#
+# OPTIONS:
+#   # ===================== INPUTS =====================
+#   - flag: --r1
+#     short: -1
+#     env: R1
+#     required: true
+#     description: FASTQ R1 (required). Can be a path; in MSF mode can be a filename/token.
+#
+#   - flag: --r2
+#     short: -2
+#     env: R2
+#     required: false
+#     description: FASTQ R2 (optional). If provided, paired-end mode is used.
+#
+#   - flag: --ref
+#     short: -r
+#     env: REF
+#     required: false
+#     description: Reference FASTA path (optional). If not provided, uses --ref-key to locate in genomes/.
+#
+#   - flag: --ref-key
+#     env: REF_KEY
+#     required: false
+#     default: pf3d7
+#     description: Reference key under genomes/ (e.g. pf3d7). Used if --ref is not set.
+#
+#   # ===================== OUTPUT CONTROL =====================
+#   - flag: --out
+#     short: -o
+#     env: OUTDIR
+#     required: false
+#     description: Output directory. In MSF mode, mapi will usually set this automatically.
+#
+#   - flag: --tag
+#     env: TAG
+#     required: false
+#     default: bwa_bam
+#     description: Output key/tag used for naming main BAM output (defaults to bwa_bam).
+#
+#   - flag: --prefix
+#     env: SAMPLE_PREFIX
+#     required: false
+#     description: Override sample prefix used in output filenames (otherwise derived from R1 basename).
+#
+#   # ===================== PERFORMANCE =====================
+#   - flag: --threads
+#     short: -t
+#     env: THREADS
+#     required: false
+#     default: 8
+#     description: Number of threads for BWA and samtools sort.
+#
+#   - flag: --sort-mem-gb
+#     env: SORT_MEM_GB
+#     required: false
+#     default: 2
+#     description: Memory per thread for samtools sort (GB). Total sort RAM ≈ threads * memGB.
+#
+#   # ===================== BWA OPTIONS =====================
+#   - flag: --read-group
+#     env: READ_GROUP
+#     required: false
+#     description: Read group string (e.g. '@RG\\tID:foo\\tSM:bar\\tPL:ILLUMINA'). If set, passed to bwa mem -R.
+#
+#   - flag: --bwa-extra
+#     env: BWA_EXTRA
+#     required: false
+#     description: Extra arguments passed to bwa mem as a single string (quoted).
+#
+#   # ===================== SAMTOOLS OPTIONS =====================
+#   - flag: --keep-unsorted
+#     env: KEEP_UNSORTED
+#     required: false
+#     default: false
+#     description: If true, keep the unsorted BAM output (rarely needed).
+#
+# RESOURCES:
+#   # Official resource root is MalariAPI/genomes/. We store references there.
+#   - name: pf3d7_reference
+#     path: genomes/pf3d7/pf3d7.fa
+#     type: file
+#     approx_size_gb: 0.03
+#     fetch: |
+#       If missing, place the reference FASTA at:
+#         genomes/pf3d7/pf3d7.fa
+#       You can obtain it from PlasmoDB or your lab’s curated reference set.
+#
+#   - name: pf3d7_bwa_index
+#     path: genomes/pf3d7/bwa
+#     type: dir
+#     approx_size_gb: 0.2
+#     fetch: |
+#       If missing, build it:
+#         mkdir -p genomes/pf3d7/bwa
+#         bwa index -p genomes/pf3d7/bwa/pf3d7 genomes/pf3d7/pf3d7.fa
+# MAPI_META_END
+# ======================================================================
+
+set -euo pipefail
+
+# ------------------------------ STEP 0 ------------------------------
+# Identify script + repo root
+self="$(basename "$0")"
+mod="${self%.sh}"
+
+REPO_ROOT="${MAPI_REPO_ROOT:-"$(cd "$(dirname "$0")/../.." 2>/dev/null || pwd)"}"
+
+# ------------------------------ STEP 1 ------------------------------
+# Load the header-driven argument parser
+# This reads the MAPI_META header above and generates parsing at runtime.
+# shellcheck disable=SC1090
+source "$REPO_ROOT/bin/_mapi_meta.sh"
+
+usage(){ cat <<EOF
+Usage:
+  $self --r1 <R1.fastq.gz> [--r2 <R2.fastq.gz>] [--ref <ref.fa> | --ref-key <key>]
+       [--threads N] [--read-group "<RG>"] [--bwa-extra "<args>"]
+       [--out <dir>] [--prefix <sample>] [--tag <output_key>]
+       [--sort-mem-gb N] [--keep-unsorted true|false] [-- ...]
+
+Notes:
+  - When run inside an MSF (mapi-<sample>/), mapi will usually set OUTDIR automatically to <sample>-output/.
+  - This script is designed to run both via mapi and as a standalone shell script.
+
+EOF
+}
+
+if [[ "${1-}" == "-h" || "${1-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+# Parse args based on header (fills R1, R2, REF, REF_KEY, OUTDIR, THREADS, etc.)
+mapi_meta_load "$0"
+mapi_meta_parse_args "$@"
+
+# ------------------------------ STEP 2 ------------------------------
+# Validate required inputs (R1 is required by header, but we show a friendly error anyway)
+if [[ -z "${R1:-}" ]]; then
+  echo "[error] Missing required input: --r1" >&2
+  usage
+  exit 2
+fi
+
+# ------------------------------ STEP 3 ------------------------------
+# Decide sample prefix + output directory
+# - If user passed --prefix, use it.
+# - Otherwise derive it from R1 basename: sample.something.fastq.gz -> sample
+bn="$(basename "$R1")"
+derived_prefix="${bn%%.*}"
+SAMPLE_PREFIX="${SAMPLE_PREFIX:-$derived_prefix}"
+
+# OUTDIR:
+# - If mapi is running inside an MSF, it likely exported OUTDIR already.
+# - If user passed --out, OUTDIR is set by the parser.
+# - Otherwise we fall back to the older behavior: <sample>_mapi-out
+OUTDIR="${OUTDIR:-${SAMPLE_PREFIX}_mapi-out}"
+mkdir -p "$OUTDIR"
+
+# Choose tag for main output naming
+# Default is "bwa_bam" (see header). You can override with --tag.
+TAG="${TAG:-bwa_bam}"
+
+# ------------------------------ STEP 4 ------------------------------
+# Output path helpers
+# We keep a simple helper that uses SAMPLE_PREFIX + TAG.
+# If you produce multiple outputs, you can override TAG temporarily.
+out_path() {
+  # Usage: out_path <ext>  -> OUTDIR/SAMPLE_PREFIX.TAG.ext
+  printf "%s/%s.%s.%s\n" "$OUTDIR" "$SAMPLE_PREFIX" "$TAG" "$1"
+}
+
+# Explicit named outputs (helps readability)
+BAM_SORTED="$(out_path bam)"
+BAM_BAI="${BAM_SORTED}.bai"
+LOG_PATH="$OUTDIR/${SAMPLE_PREFIX}.bwa_log.log"
+
+# If you want additional distinct outputs, set TAG temporarily:
+#   TAG="bwa_bam_bai"; out_path bai
+# But here we use BAM_SORTED.bai for the index.
+
+# ------------------------------ STEP 5 ------------------------------
+# Resolve reference location
+# User can provide --ref directly, or we look under genomes/<REF_KEY>/.
+if [[ -n "${REF:-}" ]]; then
+  REF_PATH="$REF"
+else
+  # Convention: genomes/<key>/<key>.fa (customize to your preference)
+  REF_PATH="$REPO_ROOT/genomes/${REF_KEY}/${REF_KEY}.fa"
+fi
+
+# ------------------------------ STEP 6 ------------------------------
+# Ensure resources exist (reference + BWA index)
+ensure_resources() {
+  # Reference fasta must exist
+  if [[ ! -f "$REF_PATH" ]]; then
+    echo "[error] Reference FASTA not found: $REF_PATH" >&2
+    echo "[hint] Provide --ref /path/to/ref.fa OR place it at genomes/${REF_KEY}/${REF_KEY}.fa" >&2
+    exit 3
+  fi
+
+  # BWA index check:
+  # BWA index creates files like: <prefix>.amb .ann .bwt .pac .sa (bwa) or .0123... (bwa-mem2)
+  # We support a common convention: genomes/<key>/bwa/<key>.*
+  local idx_prefix="$REPO_ROOT/genomes/${REF_KEY}/bwa/${REF_KEY}"
+  local have_any=0
+  for ext in amb ann bwt pac sa; do
+    [[ -f "${idx_prefix}.${ext}" ]] && have_any=1
+  done
+
+  if [[ "$have_any" -eq 0 ]]; then
+    echo "[warn] BWA index not detected for key '$REF_KEY' at: ${idx_prefix}.*" >&2
+    echo "[warn] You probably need to build it. Example:" >&2
+    echo "       mkdir -p \"$REPO_ROOT/genomes/${REF_KEY}/bwa\"" >&2
+    echo "       bwa index -p \"$idx_prefix\" \"$REF_PATH\"" >&2
+    exit 3
+  fi
+}
+
+ensure_resources
+
+# ------------------------------ STEP 7 ------------------------------
+# Check required executables (bwa, samtools)
+need_bin() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "[error] Required tool not found on PATH: $1" >&2
+    echo "[hint] Ensure your MAPI env (${mod}) contains it, or set ENV.primary to an env that does." >&2
+    exit 3
+  }
+}
+
+need_bin bwa
+need_bin samtools
+
+# ------------------------------ STEP 8 ------------------------------
+# Write a log header (versions, inputs, chosen settings)
+{
+  echo "[$mod] Starting"
+  echo "date: $(date)"
+  echo "repo_root: $REPO_ROOT"
+  echo "outdir: $OUTDIR"
+  echo "sample_prefix: $SAMPLE_PREFIX"
+  echo "tag: $TAG"
+  echo "threads: $THREADS"
+  echo "sort_mem_gb: ${SORT_MEM_GB:-2}"
+  echo "r1: $R1"
+  echo "r2: ${R2:-<none>}"
+  echo "ref: $REF_PATH"
+  echo "ref_key: ${REF_KEY:-<none>}"
+  echo "read_group: ${READ_GROUP:-<none>}"
+  echo "bwa_extra: ${BWA_EXTRA:-<none>}"
+  echo "bwa_version: $(bwa 2>&1 | head -n 1 || true)"
+  echo "samtools_version: $(samtools --version 2>/dev/null | head -n 1 || true)"
+  echo
+} > "$LOG_PATH"
+
+# ------------------------------ STEP 9 ------------------------------
+# Construct commands
+#
+# Notes for beginners:
+# - Quoting matters in Bash. Always use quotes around variables: "$R1"
+# - Paired-end if R2 is provided; single-end otherwise.
+# - BWA index prefix: we pass the reference FASTA to bwa mem, but bwa finds its index by fasta path
+#   if indexes were built as <ref>.bwt etc. Our earlier check uses a separate prefix convention.
+#   If your indexing scheme differs, adjust ensure_resources() accordingly.
+
+# Temporary files (kept inside OUTDIR)
+BAM_UNSORTED="$OUTDIR/${SAMPLE_PREFIX}.bwa_unsorted.bam"
+
+# Read group option (optional)
+RG_OPT=()
+if [[ -n "${READ_GROUP:-}" ]]; then
+  RG_OPT=(-R "$READ_GROUP")
+fi
+
+# Extra BWA args (optional string)
+# Example user input: --bwa-extra "-k 19 -T 30"
+# We want to split it into words safely.
+BWA_EXTRA_ARR=()
+if [[ -n "${BWA_EXTRA:-}" ]]; then
+  # shellcheck disable=SC2206
+  BWA_EXTRA_ARR=($BWA_EXTRA)
+fi
+
+# Compute samtools sort memory string
+# samtools sort -m expects something like "2G"
+SORT_MEM="${SORT_MEM_GB}G"
+
+# ------------------------------ STEP 10 ------------------------------
+# Run BWA-MEM -> BAM (unsorted) -> sort -> index
+#
+# We also show the exact command lines in the log so users can copy/paste to reproduce.
+{
+  echo "[cmd] bwa mem -t $THREADS ${RG_OPT[*]:-} ${BWA_EXTRA_ARR[*]:-} \"$REF_PATH\" \"$R1\" ${R2:+\"$R2\"} | samtools view -@ $THREADS -b -o \"$BAM_UNSORTED\" -"
+  echo "[cmd] samtools sort -@ $THREADS -m $SORT_MEM -o \"$BAM_SORTED\" \"$BAM_UNSORTED\""
+  echo "[cmd] samtools index -@ $THREADS \"$BAM_SORTED\""
+  echo
+} >> "$LOG_PATH"
+
+# Run alignment
+if [[ -n "${R2:-}" ]]; then
+  bwa mem -t "$THREADS" "${RG_OPT[@]}" "${BWA_EXTRA_ARR[@]}" "$REF_PATH" "$R1" "$R2" \
+    | samtools view -@ "$THREADS" -b -o "$BAM_UNSORTED" - 2>>"$LOG_PATH"
+else
+  bwa mem -t "$THREADS" "${RG_OPT[@]}" "${BWA_EXTRA_ARR[@]}" "$REF_PATH" "$R1" \
+    | samtools view -@ "$THREADS" -b -o "$BAM_UNSORTED" - 2>>"$LOG_PATH"
+fi
+
+# Sort
+samtools sort -@ "$THREADS" -m "$SORT_MEM" -o "$BAM_SORTED" "$BAM_UNSORTED" 2>>"$LOG_PATH"
+
+# Index
+samtools index -@ "$THREADS" "$BAM_SORTED" 2>>"$LOG_PATH"
+
+# ------------------------------ STEP 11 ------------------------------
+# Optional cleanup
+KEEP_UNSORTED="${KEEP_UNSORTED:-false}"
+if [[ "$KEEP_UNSORTED" != "true" && "$KEEP_UNSORTED" != "yes" && "$KEEP_UNSORTED" != "1" ]]; then
+  rm -f "$BAM_UNSORTED" || true
+else
+  echo "[info] Keeping unsorted BAM: $BAM_UNSORTED" >> "$LOG_PATH"
+fi
+
+# ------------------------------ STEP 12 ------------------------------
+# Final summary
+{
+  echo
+  echo "[$mod] Done"
+  echo "sorted_bam: $BAM_SORTED"
+  echo "bai: $BAM_BAI"
+  echo "log: $LOG_PATH"
+  echo "date: $(date)"
+} >> "$LOG_PATH"
+
+# Also print a small summary to stdout (nice when run from terminal)
+echo "[$mod] Wrote:"
+echo "  - $BAM_SORTED"
+echo "  - $BAM_BAI"
+echo "  - $LOG_PATH"
