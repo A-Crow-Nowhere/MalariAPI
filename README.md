@@ -46,7 +46,7 @@ When working inside an MSF:
 
 No long paths. No guessing where results went.
 
-[Look at a minimal **MSF** workflow example here](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/MSF.example.md)
+## [Look at a minimal **MSF** workflow example here](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/MSF.example.md)
 
 ---
 
