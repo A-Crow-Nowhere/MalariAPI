@@ -1,4 +1,4 @@
-# 🤝 Contributing to MalariAPI
+# Contributing to MalariAPI
 
 Thank you for contributing to **MalariAPI (MAPI)**!  
 This document explains how to set up your environment, create new modules or pipelines, and submit changes safely.
@@ -23,7 +23,7 @@ MalariAPI/
 
 ---
 
-## ⚙️ Developer setup (first time)
+## Developer setup (first time)
 
 1. **Fork** the repository on GitHub:
    - Go to [A-Crow-Nowhere/MalariAPI](https://github.com/A-Crow-Nowhere/MalariAPI)
@@ -54,7 +54,7 @@ MalariAPI/
 
 ---
 
-## 🧠 Development workflow
+## Development workflow
 
 ### 1. Create a new feature branch
 ```bash
@@ -102,7 +102,7 @@ A maintainer will review and merge once checks pass.
 
 ---
 
-## 🔐 Branch and merge policy
+## Branch and merge policy
 
 | Branch | Purpose | Who can push | Merge method |
 |--------|----------|--------------|---------------|
@@ -115,7 +115,7 @@ Protected branches (`main`) **cannot** be pushed to directly except by maintaine
 
 ---
 
-## 🧪 Testing & validation
+## Testing & validation
 
 All new modules/pipelines should:
 - Pass syntax checks (`bash -n`, YAML linter)
@@ -129,13 +129,13 @@ Optional CI workflows can run these checks automatically (future feature).
 
 ---
 
-## 🪪 Code of conduct
+## Code of conduct
 Be kind, clear, and constructive.  
 We are building a shared ecosystem for reproducible malaria genomics — treat every contribution as part of that collective mission.
 
 ---
 
-## 🏷️ Attribution
+## Attribution
 
 Contributors will be credited in the release notes and documentation.  
 If your module is published or referenced in a paper, please add appropriate citation info to its YAML metadata.
