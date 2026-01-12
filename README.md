@@ -79,6 +79,7 @@ MAPI includes safe Git wrappers designed for lab-based scientists (and computer 
 
 You can collaborate without becoming a Git expert.
 
+## [Look at a minimal **Git** workflow example here](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/Git.example.md)
 ---
 
 ### Backwards compatibility by design
