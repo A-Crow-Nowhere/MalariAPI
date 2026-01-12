@@ -2,8 +2,9 @@
 
 **(MAPI)** is a lightweight, human-centered workflow framework for bioinformatics, designed to make complex analyses readable, reproducible, and accessible — locally, on HPC, and in low-resource environments.
 
-MAPI is not just about running pipelines. It is about reducing friction at every stage of scientific computation.
+MAPI isn't desinged for workflows and pipelines of infinite scale - it is for researchers and lab-scientists who want to write and manage their code without being impeded by many of the issues that make computational studies unapproachble to the inexperienced. 
 
+## The only requriement to use is a basic understanding of how to navigate bash. 
 ---
 
    ### Set up base MAPI
