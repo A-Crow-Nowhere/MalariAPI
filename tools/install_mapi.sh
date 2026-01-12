@@ -320,7 +320,8 @@ else
 fi
 
 bash ~/MalariAPI/tools/install_envs.sh ~/MalariAPI/envs/default.yml
-conda activate defualt
+
+conda activate default
 
 
 # --- 6) Post-install guidance --------------------------------------------------

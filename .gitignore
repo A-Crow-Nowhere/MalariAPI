@@ -15,13 +15,19 @@ __pycache__/
 
 # MAPI-specific large/ephemeral dirs
 scratch/
-envs/*           # your per-project env YAMLs are fine; but avoid committing whole conda env dirs
+
+# Ignore all runtime env directories inside envs/
+envs/**
+# But DO track YAMLs in the envs/ root directory
+!envs/*.yml
+!envs/*.yaml
+
 tools/miniconda3/
 projects/
-.gen/           # any generated artifacts if you have such a dir
+.gen/
 *.bak
 
-# Large genomics files (adjust if you *want* them tracked with LFS)
+# Large genomics files (adjust if needed)
 *.fastq
 *.fastq.gz
 *.fq.gz
@@ -43,7 +49,3 @@ projects/
 *.bed
 *.bw
 *.tsv.gz
-
-# If you *do* want to version small configs under env/yaml/, explicitly allow:
-!envs/*.yaml
-!envs/*.yml
