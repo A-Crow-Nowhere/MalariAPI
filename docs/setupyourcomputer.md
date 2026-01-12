@@ -80,7 +80,7 @@ https://ubuntu.com/download/server/arm
 - Network: Shared (NAT)
 
 Install Ubuntu and create a username and password.
-
+This can be a bit tricky, try following this guide: [here](https://docs.getutm.app/guides/ubuntu/)
 ## 3. Update Ubuntu inside the VM
 
 ```
