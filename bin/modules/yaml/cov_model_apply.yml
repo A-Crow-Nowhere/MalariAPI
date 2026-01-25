@@ -1,0 +1,15 @@
+name: cov_model_apply
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - r-base=4.3
+  - r-data.table
+  - bedtools
+  - samtools
+  - htslib
+  - tabix
+  - ucsc-bedgraphtobigwig
+  - pigz
+  - coreutils

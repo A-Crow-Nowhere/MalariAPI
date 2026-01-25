@@ -144,6 +144,13 @@ Notes:
       - Writes an sbatch script under /scratch/$USER/mapi_logs
       - Calls 'conda run -p "$MAPI_ROOT/envs/ENV_NAME" ...' directly via
         $MAPI_ROOT/tools/miniconda3/bin/conda (no shell init).
+
+        mapi rivanna submit \
+          --name api-job \
+          --env-name default \
+          --out [scratch]/clover/raw \
+          --cmd "[home]/bin/mapi modules fastp_clean --r1 [scratch]/clover/raw/D03_R1.fq.gz --r2 [scratch]/clover/raw/D03_R2.fq.gz --detect-adapters --cut-front --cut-tail --n-base-limit 20"
+        
 U
 }
 
@@ -182,7 +189,7 @@ fi
 
 # Fall back defaults if not set (both local & remote)
 HPC_PARTITION="${HPC_PARTITION:-standard}"
-HPC_ALLOCATION="${HPC_ALLOCATION:-gulermalarialab}"
+HPC_ALLOCATION="${HPC_ALLOCATION:-yourmalarialabname}"
 
 # ------------------------------------------------------------
 # submit_* SSH wrappers (used only on local if at all)
@@ -232,6 +239,8 @@ REMOTE_CMD="$(rewrite_tokens "$CMD")"
 REMOTE_OUTDIR="$(rewrite_tokens "$OUTDIR_REMOTE")"
 
 REMOTE_CMD_IN_OUTDIR="mkdir -p \"$REMOTE_OUTDIR\" && cd \"$REMOTE_OUTDIR\" && $REMOTE_CMD"
+REMOTE_CMD_IN_OUTDIR="export PATH=\"$MAPI_ROOT/bin:\$PATH\"; $REMOTE_CMD_IN_OUTDIR"
+	
 
 if [[ "${MAPI_DEBUG:-0}" == "1" ]]; then
   echo "[DEBUG] HOST=${MAPI_REMOTE_HOST:-${HOST:-}}"

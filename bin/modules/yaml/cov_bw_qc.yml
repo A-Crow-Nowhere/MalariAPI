@@ -1,0 +1,8 @@
+name: cov_bw_qc
+channels: [conda-forge, bioconda]
+dependencies:
+  - bedtools
+  - samtools
+  - ucsc-bigwigtobedgraph
+  - ucsc-bigwiginfo
+  - ucsc-bedgraphtobigwig

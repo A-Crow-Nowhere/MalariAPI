@@ -1,0 +1,16 @@
+name: cov_model_train
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - samtools>=1.17
+  - bedtools>=2.31
+  - mosdepth>=0.3.7
+  - jq
+
+  # R runtime + required packages (no optparse)
+  - r-base=4.3.*
+  - r-mgcv
+  - r-data.table
+  - r-jsonlite

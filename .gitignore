@@ -22,6 +22,7 @@ envs/**
 !envs/*.yml
 !envs/*.yaml
 
+genomes/
 tools/miniconda3/
 projects/
 .gen/

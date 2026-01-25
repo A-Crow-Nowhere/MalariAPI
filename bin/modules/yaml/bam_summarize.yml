@@ -1,0 +1,8 @@
+name: bam_summarize
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - samtools=1.23
+  - mosdepth=0.3.8
+  - qualimap=2.3

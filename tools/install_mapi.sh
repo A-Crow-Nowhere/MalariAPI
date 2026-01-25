@@ -323,6 +323,8 @@ bash ~/MalariAPI/tools/install_envs.sh ~/MalariAPI/envs/default.yml
 
 conda activate default
 
+mv ~/MalariAPI/docs ~/MalariAPI/.docs
+mv ~/MalariAPI/README.md ~/MalariAPI/.README.md
 
 # --- 6) Post-install guidance --------------------------------------------------
 cat <<'NOTE'
