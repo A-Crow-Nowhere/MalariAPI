@@ -19,7 +19,7 @@ If you plan to contribute:
 This lets you push to your own fork while still pulling updates from the main repository.
 
 ### 1.5 Configure GIT on you System for the first time (only for the first time)
-Follow the instructions (here)[docs/git.config.md]
+Follow the instructions [here](docs/git.config.md)
 
 
 ### Choose your installation path
