@@ -2,6 +2,19 @@
 set -euo pipefail
 
 ###############################################################################
+# MAPI HPC installer (updated for current layout + "mapi summons conda" model)
+#
+# Key updates:
+#  - NO remote ~/.bashrc conda init (conda should not be global; mapi summons it)
+#  - Remote base env update reads YAML from tools/yaml/base.(yml|yaml) only
+#  - Remote Miniconda download supports curl OR wget
+#  - Excludes template uses __HPC_NAME__ placeholder (safer than <HPC_NAME>)
+#  - Writes MAPI_CONDA_HOME into bin/.mapi.env (canonical conda location)
+#  - Removes destructive rm -rf of tools/hpc_templates on remote
+#  - Removes redundant tar exclude of tools/$HPC_NAME/submit
+###############################################################################
+
+###############################################################################
 # 0) BASIC SETUP
 ###############################################################################
 
@@ -63,13 +76,13 @@ remote_user() {
   local host="$1"
   local u="${host%@*}"
   if [[ "$u" == "$host" || -z "$u" ]]; then
-    u="$(ssh -o ConnectTimeout=8 "$host" 'printf "%s" "$USER"' 2>/dev/null)"
+    u="$(ssh -o ConnectTimeout=8 "$host" 'printf "%s" "$USER"' 2>/dev/null || true)"
   fi
   printf "%s" "$u"
 }
 
 REMOTE_USER="$(remote_user "$HOST")"
-REMOTE_HOME="$(ssh -o ConnectTimeout=8 "$HOST" 'printf "%s" "$HOME"' 2>/dev/null)" || true
+REMOTE_HOME="$(ssh -o ConnectTimeout=8 "$HOST" 'printf "%s" "$HOME"' 2>/dev/null || true)"
 
 [[ -n "$REMOTE_HOME" ]] || { echo "Could not determine remote HOME on $HOST" >&2; exit 4; }
 
@@ -147,6 +160,9 @@ add_if_missing "REMOTE_MAPI_SCRATCH"  "$REMOTE_SCRATCH"
 add_if_missing "MAPI_SCRATCH"         "\$MAPI_ROOT/scratch"
 add_if_missing "MAPI_SYNC_EXCLUDES_FILE" "$MAPI_ROOT/tools/.sync_excludes.txt"
 
+# Canonical local conda location for MAPI (mapi summons this; no global shell changes)
+add_if_missing "MAPI_CONDA_HOME"      "\$MAPI_ROOT/tools/miniconda3"
+
 set_or_update "HPC_PARTITION" "$PARTITION"
 set_or_update "HPC_ALLOCATION" "$ALLOCATION"
 
@@ -188,9 +204,8 @@ ssh "${SSH_OPTS[@]}" "$HOST" true >/dev/null
 ssh "${SSH_OPTS[@]}" "$HOST" \
   "mkdir -p \"$REMOTE_MAPI_HOME\" \"$REMOTE_SCRATCH/scratch\" /scratch/\$USER/mapi_logs" 2>/dev/null
 
-
 ###############################################################################
-# 5a) TAR EXCLUDES
+# 5a) SYNC EXCLUDES
 ###############################################################################
 
 mkdir -p "$MAPI_ROOT/tools"
@@ -201,19 +216,19 @@ if [[ ! -f "$SYNC_EXC_FILE" ]]; then
 .git
 scratch
 tools/miniconda3
-tools/<HPC_NAME>
+tools/__HPC_NAME__/
 EOF
 fi
 
 TMP_SYNC_EXC="$(mktemp)"
-sed "s#<HPC_NAME>#$HPC_NAME#g" "$SYNC_EXC_FILE" > "$TMP_SYNC_EXC"
+sed "s#__HPC_NAME__#${HPC_NAME}#g" "$SYNC_EXC_FILE" > "$TMP_SYNC_EXC"
 trap 'rm -f "$TMP_SYNC_EXC"' EXIT
 
 ###############################################################################
-# 6) MIRROR LOCAL → REMOTE HOME
+# 6) MIRROR LOCAL  REMOTE HOME
 ###############################################################################
 
-echo "[local] syncing MalariAPI → remote..."
+echo "[local] syncing MalariAPI  remote..."
 
 tar -czf - \
   --exclude scratch \
@@ -222,17 +237,16 @@ tar -czf - \
   --exclude 'envs/*' \
   --exclude tools/miniconda3 \
   --exclude 'tools/miniconda3/*' \
-  --exclude "tools/$HPC_NAME/submit" \
   --exclude-from "$TMP_SYNC_EXC" \
   -C "$MAPI_ROOT" . \
   | ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" \
       "env -u BASH_ENV bash --noprofile --norc -c 'set -euo pipefail; mkdir -p \"\$HOME/MalariAPI\"; tar -xzf - -C \"\$HOME/MalariAPI\"'"
 
 ###############################################################################
-# 7) MIRROR LOCAL SCRATCH → REMOTE SCRATCH
+# 7) MIRROR LOCAL SCRATCH  REMOTE SCRATCH
 ###############################################################################
 
-echo "[scratch] staging scratch → remote"
+echo "[scratch] staging scratch  remote"
 
 mkdir -p "$MAPI_ROOT/scratch"
 tar -C "$MAPI_ROOT/scratch" --exclude tmp -czf - . \
@@ -242,8 +256,7 @@ tar -C "$MAPI_ROOT/scratch" --exclude tmp -czf - . \
 ###############################################################################
 # 8) REMOTE SUBMIT WRAPPER
 ###############################################################################
-
-# depricated
+# deprecated / removed
 
 ###############################################################################
 # 9) INSTALL LOCAL HPC TOOL WRAPPERS
@@ -264,11 +277,8 @@ install_local_hpc_tools() {
 
   mkdir -p "$dest_dir"
 
-  # Copy every file from tools/hpc_templates into tools/<HPC_NAME>/
-  # (e.g. submit, sync, push, peak → tools/rivanna/)
   rsync -a "$tmpl_root"/ "$dest_dir"/
 
-  # Substitute __HPC_NAME__ placeholder and make sure everything is executable
   if ls "$dest_dir"/* >/dev/null 2>&1; then
     sed -i "s/__HPC_NAME__/$name/g" "$dest_dir"/* || true
     chmod +x "$dest_dir"/* || true
@@ -278,12 +288,9 @@ install_local_hpc_tools() {
 echo "[install] Setting up local HPC tool wrappers for $HPC_NAME..."
 install_local_hpc_tools "$HPC_NAME"
 
-
 ###############################################################################
 # 10) REMOTE MINICONDA INSTALL
 ###############################################################################
-
-
 
 ssh "${SSH_OPTS[@]}" "$HOST" 'bash --noprofile --norc -s' <<'RMT'
 set -euo pipefail
@@ -291,10 +298,9 @@ set -euo pipefail
 MAPI_HOME="$HOME/MalariAPI"
 REMOTE_CONDA_DIR="$MAPI_HOME/tools/miniconda3"
 
-# 0) Detect obviously broken Miniconda (e.g. conda shebang pointing to someone else's HOME)
+# 0) Detect obviously broken Miniconda (e.g. conda shebang pointing elsewhere)
 if [[ -x "$REMOTE_CONDA_DIR/bin/conda" ]]; then
   first_line="$(head -n 1 "$REMOTE_CONDA_DIR/bin/conda" 2>/dev/null || true)"
-  # If the shebang does NOT contain our remote conda dir, treat it as corrupt
   if [[ "$first_line" != *"$REMOTE_CONDA_DIR/bin/python"* ]]; then
     echo "[remote] Existing Miniconda at $REMOTE_CONDA_DIR looks corrupted (shebang: $first_line)"
     echo "[remote] Removing and reinstalling..."
@@ -309,14 +315,26 @@ if [[ ! -x "$REMOTE_CONDA_DIR/bin/conda" ]]; then
   cd "$MAPI_HOME/tools"
   INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
   URL="https://repo.anaconda.com/miniconda/$INSTALLER"
-  curl -L -o "$INSTALLER" "$URL"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$INSTALLER" "$URL"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "$INSTALLER" "$URL"
+  else
+    echo "[remote] ERROR: neither curl nor wget is available to download Miniconda." >&2
+    exit 3
+  fi
+
   bash "$INSTALLER" -b -p "$REMOTE_CONDA_DIR"
   rm -f "$INSTALLER"
 fi
 
-echo "[remote] ensuring base env update"
+echo "[remote] ensuring base env update (tools/yaml/base.yml if present)"
 BASE=""
-for p in "$MAPI_HOME/envs/base.yml" "$MAPI_HOME/envs/base.yaml" "$MAPI_HOME/tools/yaml/base.yml" "$MAPI_HOME/tools/yaml/base.yaml"; do
+for p in \
+  "$MAPI_HOME/tools/yaml/base.yml" \
+  "$MAPI_HOME/tools/yaml/base.yaml"
+do
   [[ -f "$p" ]] && BASE="$p" && break
 done
 
@@ -326,21 +344,19 @@ fi
 RMT
 
 ###############################################################################
-# 11) REMOTE mapi_remote_env.sh + ~/.bashrc PATCH
+# 11) REMOTE env file only (NO ~/.bashrc modifications)
 ###############################################################################
 
-
-echo "[remote] installing mapi_remote_env.sh + ~/.bashrc hook"
+echo "[remote] installing tools/mapi_remote_env.sh (no bashrc edits)"
 
 ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" 'bash --noprofile --norc -s' <<'RMT'
 set -euo pipefail
-
 MAPI_ROOT="$HOME/MalariAPI"
 TOOLS_DIR="$MAPI_ROOT/tools"
 mkdir -p "$TOOLS_DIR"
 
 cat >"$TOOLS_DIR/mapi_remote_env.sh" <<'EOF_ENV'
-# Auto-generated by MAPI installer
+# Auto-generated by MAPI installer (remote)
 export MAPI_ROOT="$HOME/MalariAPI"
 export REMOTE_MAPI_HOME="$HOME/MalariAPI"
 export REMOTE_SCRATCH="${REMOTE_SCRATCH:-/scratch/$USER/MalariAPI}"
@@ -348,49 +364,14 @@ export MAPI_SCRATCH="$MAPI_ROOT/scratch"
 EOF_ENV
 
 chmod +x "$TOOLS_DIR/mapi_remote_env.sh"
-
-# Patch ~/.bashrc cleanly
-BASHRC="$HOME/.bashrc"
-BEGIN="# MAPI_CONDA_INTERACTIVE_WRAP_BEGIN"
-END="# MAPI_CONDA_INTERACTIVE_WRAP_END"
-
-tmp="$(mktemp)"
-
-if [[ -f "$BASHRC" ]]; then
-  awk -v b="$BEGIN" -v e="$END" '
-    $0==b {skip=1}
-    skip && $0==e {skip=0; next}
-    !skip {print}
-  ' "$BASHRC" >"$tmp"
-else
-  : >"$tmp"
-fi
-
-cat >>"$tmp" <<'EOF_RC'
-# ===== MAPI: minimal conda setup for interactive shells only =====
-# MAPI_CONDA_INTERACTIVE_WRAP_BEGIN
-if [[ $- == *i* ]]; then
-    MAPI_ROOT="$HOME/MalariAPI"
-    CONDA_ROOT="$MAPI_ROOT/tools/miniconda3"
-    if [[ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]]; then
-        . "$CONDA_ROOT/etc/profile.d/conda.sh"
-    fi
-    export MAPI_ROOT CONDA_ROOT
-fi # MAPI_CONDA_INTERACTIVE_WRAP_END
-# ===== end MAPI block =====
-EOF_RC
-
-mv "$tmp" "$BASHRC"
-rm -rf ~/MalariAPI/tools/hpc_templates/
 RMT
 
-
 ###############################################################################
-# DONE 🎉
+# DONE ??
 ###############################################################################
 
 echo
-echo "HPC init complete ✅"
+echo "HPC init complete ?"
 echo "Local scratch:  $MAPI_ROOT/scratch/"
 echo "Remote scratch: $REMOTE_SCRATCH/scratch/"
 echo "Use:  mapi $HPC_NAME submit|status|cancel|look|peak|pull|push|sync"
