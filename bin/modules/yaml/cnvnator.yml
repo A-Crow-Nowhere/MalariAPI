@@ -1,0 +1,8 @@
+name: cnvnator
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - cnvnator
+  - samtools
+  - root

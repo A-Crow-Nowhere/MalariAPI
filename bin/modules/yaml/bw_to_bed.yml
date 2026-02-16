@@ -1,0 +1,13 @@
+name: bw_to_bedgraph
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  # Core shell
+
+  # UCSC BigWig utilities
+  - ucsc-bigwigtobedgraph
+  # Unix essentials
+  - coreutils
+  - findutils
+  - gzip

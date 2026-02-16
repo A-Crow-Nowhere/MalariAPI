@@ -1,0 +1,26 @@
+{
+  "name": "mytool",
+  "description": "Auto-generated MAPI command for mytool",
+  "language": "bash",
+  "entrypoint": {
+    "command": "",
+    "notes": ""
+  },
+  "inputs": [],
+  "outputs": [],
+  "dependencies": {
+    "cli_tools": [],
+    "conda_packages": [],
+    "python_pip": [],
+    "r_packages": [],
+    "notes": ""
+  },
+  "resources": {
+    "cpus": 1,
+    "mem_gb": 2,
+    "time": "01:00:00",
+    "gpu": false
+  },
+  "example": "",
+  "notes": ""
+}

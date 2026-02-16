@@ -1,0 +1,11 @@
+name: codegen
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.10
+  - pip
+  # Nice-to-haves for robustness (safe even if unused initially)
+  - rich                # prettier, clearer logging if you later opt in
+  - jsonschema          # if you later enforce spec_schema.json formally
+  - pyyaml              # if you later switch module.yml to real YAML output

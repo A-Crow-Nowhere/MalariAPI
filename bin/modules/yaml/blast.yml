@@ -1,0 +1,15 @@
+name: blast
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.9
+  - biopython
+  - requests
+  - blast
+  - pandas
+  - samtools
+  - seqkit
+  - wget
+  - pip

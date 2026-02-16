@@ -1,0 +1,10 @@
+name: CLOverCNV_post_fuse
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pandas>=2.2,<2.4
+  - numpy>=1.26,<3
+  - pip
+  - pip:
+      - pyarrow>=15

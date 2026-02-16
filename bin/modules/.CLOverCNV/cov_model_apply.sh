@@ -118,7 +118,7 @@ command -v "$R_EXE" >/dev/null 2>&1 || die "R executable not found in PATH: $R_E
 MAPI_ROOT="${MAPI_ROOT:-$HOME/MalariAPI}"
 
 # Hidden R helper (primary only)
-R_HELPER="$MAPI_ROOT/bin/modules/.cov_model_primary_factor.R"
+R_HELPER="$MAPI_ROOT/bin/modules/.CLOverCNV/.cov_model_primary_factor.R"
 [[ -f "$R_HELPER" ]] || die "Missing helper: $R_HELPER"
 
 # ---------------------------
@@ -347,7 +347,7 @@ with open(bg) as inp, open(tmp,"w") as out:
     c,s,e,v = line.rstrip("\n").split("\t")
     s=int(float(s)); e=int(float(e))
     L=sizes.get(c)
-    if L is None: 
+    if L is None:
       continue
     if s >= L:
       continue
@@ -414,6 +414,35 @@ bedgraph_to_bw() {
   local out_bw="$2"
   bedGraphToBigWig "$in_bg" "$CHROM_SIZES" "$out_bw"
 }
+
+# ---- PATCH: sanitize bedGraph numeric column before bedGraphToBigWig ----
+sanitize_bedgraph_numeric() {
+  local bg="$1"
+  [[ -s "$bg" ]] || return 0
+  local bad
+  bad="$(awk '$4=="NA" || $4=="" || $4=="nan" || $4=="NaN" || $4=="inf" || $4=="-inf"{c++} END{print c+0}' "$bg")"
+  if [[ "$bad" -gt 0 ]]; then
+    say "NOTE: Dropping $bad non-numeric rows from bedGraph: $bg"
+    local tmp="${bg}.clean"
+    awk 'BEGIN{OFS="\t"} $4!="NA" && $4!="" && $4!="nan" && $4!="NaN" && $4!="inf" && $4!="-inf"{print $1,$2,$3,$4}' "$bg" > "$tmp"
+    mv "$tmp" "$bg"
+  fi
+}
+
+sanitize_4col_numeric() {
+  local f="$1"
+  [[ -s "$f" ]] || return 0
+  local bad
+  bad="$(awk '$4=="NA" || $4=="" || $4=="nan" || $4=="NaN" || $4=="inf" || $4=="-inf"{c++} END{print c+0}' "$f")"
+  if [[ "$bad" -gt 0 ]]; then
+    say "NOTE: Dropping $bad non-numeric rows from 4-col file: $f"
+    local tmp="${f}.clean"
+    awk 'BEGIN{OFS="\t"} $4!="NA" && $4!="" && $4!="nan" && $4!="NaN" && $4!="inf" && $4!="-inf"{print $1,$2,$3,$4}' "$f" > "$tmp"
+    mv "$tmp" "$f"
+  fi
+}
+
+
 
 apply_cfactor_to_bg() {
   local raw_bg="$1"        # chrom start end val
@@ -545,6 +574,9 @@ for sample in "${!SAMPLE_TO_ROWS[@]}"; do
     --out-expected "$expected_tsv" \
     --out-cfactor "$cfactor_tsv"
 
+	sanitize_4col_numeric "$expected_tsv"
+	sanitize_4col_numeric "$cfactor_tsv"
+
   # Factors bigWigs
   expected_bg="$tmp_dir/${sample}.expected.bedgraph"
   cfactor_bg="$tmp_dir/${sample}.cfactor.bedgraph"
@@ -552,6 +584,11 @@ for sample in "${!SAMPLE_TO_ROWS[@]}"; do
   cp "$cfactor_tsv" "$cfactor_bg"
   sort -k1,1 -k2,2n "$expected_bg" -o "$expected_bg"
   sort -k1,1 -k2,2n "$cfactor_bg" -o "$cfactor_bg"
+
+  # ---- PATCH: sanitize factor bedGraphs before bigWig conversion ----
+  sanitize_bedgraph_numeric "$expected_bg"
+  sanitize_bedgraph_numeric "$cfactor_bg"
+
   bedgraph_to_bw "$expected_bg" "$fac_dir/${sample}.expected.bins${BINSIZE}.bw"
   bedgraph_to_bw "$cfactor_bg" "$fac_dir/${sample}.cfactor.bins${BINSIZE}.bw"
 
@@ -574,6 +611,10 @@ for sample in "${!SAMPLE_TO_ROWS[@]}"; do
     # Corrected bedGraph (temp)
     corr_bg="$tmp_dir/${sample}.${tag}.corr.bins${BINSIZE}.bedgraph"
     apply_cfactor_to_bg "$raw_bg" "$cfactor_tsv" "$corr_bg"
+
+    # ---- PATCH (optional but robust): sanitize before conversion ----
+    sanitize_bedgraph_numeric "$raw_bg"
+    sanitize_bedgraph_numeric "$corr_bg"
 
     # BigWigs (final)
     bedgraph_to_bw "$corr_bg" "$corr_dir/${sample}.${tag}.corr.bins${BINSIZE}.bw"

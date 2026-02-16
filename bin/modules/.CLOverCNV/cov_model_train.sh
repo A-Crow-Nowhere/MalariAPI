@@ -443,7 +443,7 @@ fi
 # -----------------------------
 # Locate training helper
 # -----------------------------
-R_HELPER="$MAPI_ROOT/bin/modules/.cov_model_train_fit.R"
+R_HELPER="$MAPI_ROOT/bin/modules/.CLOverCNV/.cov_model_train_fit.R"
 [[ -f "$R_HELPER" ]] || die "Missing R helper: $R_HELPER"
 
 # -----------------------------

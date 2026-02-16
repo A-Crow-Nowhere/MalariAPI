@@ -1,0 +1,9 @@
+name: count_files
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - bash
+  # Suggested CLI tools (verify names):
+  - exit

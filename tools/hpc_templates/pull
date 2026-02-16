@@ -44,8 +44,31 @@ if hpc_ssh "test -d $(_q "$REMOTE_SRC")"; then
 else
   # Glob?
   if [[ "$REMOTE_SRC_RAW" == *\** || "$REMOTE_SRC_RAW" == *\?* || "$REMOTE_SRC_RAW" == *\[* ]]; then
+    # For globs, --to must be a directory destination
     mkdir -p "$LOCAL_DST"
-    _mapi_recv_into_dir "$HOST:'$REMOTE_SRC_RAW'" "$LOCAL_DST"
+
+    # Expand the pattern on the REMOTE using bash so * ? [] work.
+    # NOTE: use REMOTE_SRC (rewritten tokens), not RAW.
+    # Use nullglob so non-matching globs produce empty output (not literal pattern).
+    pattern_q="$(_q "$REMOTE_SRC")"
+    mapfile -t matches < <(
+      hpc_ssh_sh -lc "bash -lc 'shopt -s nullglob; for f in $pattern_q; do printf \"%s\n\" \"\$f\"; done'"
+    )
+
+    if [[ "${#matches[@]}" -eq 0 ]]; then
+      echo "pull: no remote matches for pattern: $REMOTE_SRC" >&2
+      exit 2
+    fi
+
+    # Pull each match as an exact file into LOCAL_DST
+    for f in "${matches[@]}"; do
+      # Skip directories defensively
+      if hpc_ssh "test -d $(_q "$f")"; then
+        echo "pull: skipping directory match (use a directory path instead): $f" >&2
+        continue
+      fi
+      _mapi_recv_file_exact "$HOST:$f" "$LOCAL_DST/"
+    done
   else
     # Single file
     if [[ $is_dir_target -eq 1 ]]; then

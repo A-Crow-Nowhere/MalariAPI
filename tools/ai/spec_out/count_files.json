@@ -1,0 +1,29 @@
+{
+  "name": "count_files",
+  "description": "Auto-generated MAPI command for count_files",
+  "language": "bash",
+  "entrypoint": {
+    "command": "bash \"$MAPI_ROOT/tools/generated/count_files/count_files.sh\"",
+    "notes": ""
+  },
+  "inputs": [],
+  "outputs": [],
+  "dependencies": {
+    "cli_tools": [
+      "exit"
+    ],
+    "conda_packages": [],
+    "python_pip": [],
+    "r_packages": [],
+    "notes": ""
+  },
+  "resources": {
+    "cpus": 1,
+    "mem_gb": 2,
+    "time": "01:00:00",
+    "gpu": false
+  },
+  "example": "",
+  "notes": "",
+  "_rel_tool": "tools/generated/count_files/count_files.sh"
+}

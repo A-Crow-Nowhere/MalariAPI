@@ -1,0 +1,7 @@
+name: key_column
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - bash

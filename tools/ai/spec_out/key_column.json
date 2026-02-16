@@ -1,0 +1,27 @@
+{
+  "name": "key_column",
+  "description": "takes the sample key off of the front of a file name (eg samplekey.file.file.tsv), and adds a column at the end of the file (sample_name), and then populates all of the rows in that column with the samplekey",
+  "language": "bash",
+  "entrypoint": {
+    "command": "bash \"$MAPI_ROOT/tools/generated/key_column/key_column.sh\"",
+    "notes": ""
+  },
+  "inputs": [],
+  "outputs": [],
+  "dependencies": {
+    "cli_tools": [],
+    "conda_packages": [],
+    "python_pip": [],
+    "r_packages": [],
+    "notes": ""
+  },
+  "resources": {
+    "cpus": 1,
+    "mem_gb": 2,
+    "time": "01:00:00",
+    "gpu": false
+  },
+  "example": "",
+  "notes": "",
+  "_rel_tool": "tools/generated/key_column/key_column.sh"
+}
