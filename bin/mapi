@@ -3,93 +3,132 @@ set -Eeuo pipefail
 [[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
 
 # ------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------
+say(){ printf '%s\n' "$*" >&2; }
+have(){ command -v "$1" >/dev/null 2>&1; }
+have_jq(){ command -v jq >/dev/null 2>&1; }
+
+# ------------------------------------------------------------
+# Global flags (can appear anywhere): -a / --all shows hidden groups
+# ------------------------------------------------------------
+SHOW_ALL=0
+_args=()
+for _x in "$@"; do
+  case "$_x" in
+    -a|--all) SHOW_ALL=1 ;;
+    *) _args+=("$_x") ;;
+  esac
+done
+set -- "${_args[@]}"
+unset _args _x
+
+# ------------------------------------------------------------
+# Color support (auto-disable if not a TTY)
+# ------------------------------------------------------------
+if [[ -t 1 ]]; then
+  C_RESET=$'\033[0m'
+  C_BOLD=$'\033[1m'
+  C_DIM=$'\033[2m'
+  C_CYAN=$'\033[36m'
+else
+  C_RESET=""; C_BOLD=""; C_DIM=""; C_CYAN=""
+fi
+
+_term_cols() {
+  if [[ -t 1 ]] && have tput; then
+    tput cols 2>/dev/null || echo 120
+  else
+    echo 120
+  fi
+}
+
+_print_wall() {
+  # Read all items from stdin, print as a fixed-width grid.
+  # Avoids ragged tab-stop alignment from `column` when names vary.
+  local -a items=()
+  local line maxlen=0 pad=2 width cols colw i
+
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    items+=("$line")
+    (( ${#line} > maxlen )) && maxlen=${#line}
+  done
+
+  ((${#items[@]}==0)) && return 0
+
+  width="$(_term_cols)"
+  colw=$(( maxlen + pad ))
+  (( colw < 10 )) && colw=10
+
+  cols=$(( width / colw ))
+  (( cols < 1 )) && cols=1
+
+  for ((i=0; i<${#items[@]}; i++)); do
+    printf "%-*s" "$colw" "${items[i]}"
+    if ((( (i+1) % cols ) == 0)); then
+      printf "\n"
+    fi
+  done
+  if (( (${#items[@]} % cols) != 0 )); then
+    printf "\n"
+  fi
+}
+
+# ------------------------------------------------------------
 # Locate repo root and tools
 # ------------------------------------------------------------
 THIS="$(readlink -f "$0" 2>/dev/null || python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$0")"
 
-# Prefer an explicit MalariAPI root under $HOME if it exists
 if [[ -z "${REPO_ROOT:-}" ]]; then
   if [[ -d "$HOME/MalariAPI" ]]; then
     REPO_ROOT="$HOME/MalariAPI"
   else
-    # Fallback: infer from script location (supports dev checkouts)
     REPO_ROOT="$(cd "$(dirname "$THIS")/.." && pwd)"
   fi
 fi
 
-# MAPI_ROOT is the “logical” root; can override via env or .mapi.env
 MAPI_ROOT="${MAPI_ROOT:-$REPO_ROOT}"
+BIN_DIR="$MAPI_ROOT/bin"
+MOD_DIR="$BIN_DIR/modules"
 TOOLS_DIR="$MAPI_ROOT/tools"
 CFG_JSON="$TOOLS_DIR/hpc_config.json"
 
 # Load installer exports if present
-if      [ -f "$MAPI_ROOT/bin/.mapi.env" ]; then
+if      [[ -f "$MAPI_ROOT/bin/.mapi.env" ]]; then
   # shellcheck source=/dev/null
   . "$MAPI_ROOT/bin/.mapi.env"
-elif    [ -f "$MAPI_ROOT/bin/mapi.env" ]; then  # back-compat
+elif    [[ -f "$MAPI_ROOT/bin/mapi.env" ]]; then
   # shellcheck source=/dev/null
   . "$MAPI_ROOT/bin/mapi.env"
 fi
 
-have_jq() { command -v jq >/dev/null 2>&1; }
+# ------------------------------------------------------------
+# Internal conda (non-invasive default)
+#   - If $MAPI_ROOT/tools/miniconda3 exists, use it for this process tree
+#   - Otherwise fall back to whatever conda the user already has (if any)
+# ------------------------------------------------------------
+_mapi_summon_conda() {
+  : "${MAPI_CONDA_HOME:=$MAPI_ROOT/tools/miniconda3}"
 
-# ------------------------------------------------------------
-# Conda root resolver (for local modules/pipelines/packages)
-# ------------------------------------------------------------
-resolve_conda_root() {
-  if [[ -n "${MAPI_CONDA_ROOT:-}" && -d "$MAPI_CONDA_ROOT" ]]; then
-    printf '%s\n' "$MAPI_CONDA_ROOT"
+  if [[ -f "$MAPI_CONDA_HOME/etc/profile.d/conda.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "$MAPI_CONDA_HOME/etc/profile.d/conda.sh"
+    export CONDA_ENVS_DIRS="$MAPI_ROOT/envs"
     return 0
   fi
-  if [[ -d "$MAPI_ROOT/tools/miniconda3" ]]; then
-    printf '%s\n' "$MAPI_ROOT/tools/miniconda3"
+
+  if have conda; then
+    export CONDA_ENVS_DIRS="$MAPI_ROOT/envs"
     return 0
   fi
-  # Fallback: try to infer from "conda" on PATH
-  if command -v conda >/dev/null 2>&1; then
-    local c
-    c="$(command -v conda)"
-    printf '%s\n' "$(cd "$(dirname "$c")/.." && pwd)"
-    return 0
-  fi
+
   return 1
 }
-
-# Make sure CONDA_ROOT/PATH set for module/pipeline/package runs
-if CONDA_ROOT="$(resolve_conda_root)"; then
-  export PATH="$CONDA_ROOT/bin:$PATH"
-  export CONDA_ENVS_DIRS="$MAPI_ROOT/envs"
-fi
+_mapi_summon_conda || true
 
 # ------------------------------------------------------------
-# Shared layout for module/pipeline/package/script/tools
-# ------------------------------------------------------------
-BIN_DIR="$MAPI_ROOT/bin"
-MOD_DIR="$BIN_DIR/modules"
-
-# ------------------------------------------------------------
-# MSF (MAPI Sample Folder) detection
-# ------------------------------------------------------------
-detect_msf() {
-  local dir="$PWD" base sample
-  while [[ "$dir" != "/" && -n "$dir" ]]; do
-    base="$(basename "$dir")"
-    if [[ "$base" == mapi-* ]]; then
-      sample="${base#mapi-}"
-      export MAPI_SAMPLE_ROOT="$dir"
-      export MAPI_SAMPLE_NAME="$sample"
-      export MAPI_SAMPLE_OUT="$dir/$sample-output"
-      return 0
-    fi
-    dir="$(dirname "$dir")"
-  done
-  return 1
-}
-
-detect_msf || true
-
-# ------------------------------------------------------------
-# YAML helpers (for env + listing)
+# YAML helpers (env + listing)
 # ------------------------------------------------------------
 find_module_yaml() {
   local n="$1"
@@ -107,38 +146,16 @@ find_module_yaml() {
 get_env_name_from_yaml() {
   local y="$1"
   local val
+
   val="$(grep -E '^[[:space:]]*env_name:' "$y" 2>/dev/null | head -n1 | sed 's/^[[:space:]]*env_name:[[:space:]]*//')" || true
-  if [[ -n "$val" ]]; then
-    printf '%s\n' "$val"
-    return 0
-  fi
+  if [[ -n "$val" ]]; then printf '%s\n' "$val"; return 0; fi
+
   val="$(grep -E '^[[:space:]]*name:' "$y" 2>/dev/null | head -n1 | sed 's/^[[:space:]]*name:[[:space:]]*//')" || true
   [[ -n "$val" ]] && printf '%s\n' "$val"
 }
 
-
 # ------------------------------------------------------------
-# Listing helpers (ignore hidden)
-# ------------------------------------------------------------
-list_items() {
-  case "$1" in
-    modules)
-      [[ -d "$MOD_DIR" ]] && \
-        find "$MOD_DIR" -maxdepth 1 -type f -name '*.sh' ! -name '.*' -printf '%f\n' 2>/dev/null \
-        | sed 's/\.sh$//' | sort || true
-      ;;
-    tools)
-      [[ -d "$TOOLS_DIR" ]] && \
-        find "$TOOLS_DIR" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' \) ! -name '.*' -printf '%f\n' 2>/dev/null \
-        | sed -E 's/\.(sh|py)$//' | sort || true
-      ;;
-    *)
-      echo "unknown type: $1" >&2; return 2;;
-  esac
-}
-
-# ------------------------------------------------------------
-# Header ENV: parser (primary/fallback)
+# Header ENV parser (primary/fallback)
 # ------------------------------------------------------------
 _read_env_from_header() {
   local script="$1"
@@ -151,19 +168,13 @@ _read_env_from_header() {
   [[ -z "$header" ]] && { printf '\n\n'; return 0; }
 
   while IFS= read -r line; do
-    # Strip leading "#"/"# " and whitespace
-    line="${line#\# }"
-    line="${line#\#}"
+    line="${line#\# }"; line="${line#\#}"
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
 
     case "$line" in
-      ENV:*)
-        section="ENV"
-        continue
-        ;;
+      ENV:*) section="ENV"; continue;;
       NAME:*|SUMMARY:*|OUTPUTS:*|OPTIONS:*|RESOURCES:*|"")
-        # Leaving ENV section
         [[ "$section" == "ENV" ]] && break
         ;;
     esac
@@ -191,43 +202,31 @@ _read_env_from_header() {
 }
 
 # ------------------------------------------------------------
-# Env selection helper with header+YAML+default
+# Env selection helper: header + YAML + default
 # ------------------------------------------------------------
 _choose_env_with_fallback() {
-  # args: kind name script_path yaml_kind [meta_for_package]
+  # args: kind name script_path yaml_kind
   local kind="$1"; shift
   local name="$1"; shift
   local script="$1"; shift
   local yaml_kind="$1"; shift || true
-  local meta="${1:-}"
 
   local primary="" fallback="" header_primary="" header_fallback=""
-  local yaml_env=""
+  local meta="" yaml_env=""
 
-  # 1) Try header ENV for modules/pipelines/packages that have it
   if [[ -f "$script" ]]; then
     header_primary="$(_read_env_from_header "$script" | sed -n '1p')"
     header_fallback="$(_read_env_from_header "$script" | sed -n '2p')"
   fi
 
-  # 2) YAML env_name as legacy/secondary
   case "$yaml_kind" in
-    module)
-      [[ -z "$meta" ]] && meta="$(find_module_yaml "$name" 2>/dev/null || true)"
-      ;;
-    pipeline)
-      [[ -z "$meta" ]] && meta="$(find_pipeline_yaml "$name" 2>/dev/null || true)"
-      ;;
-    package)
-      # meta passed in explicitly
-      ;;
+    module) meta="$(find_module_yaml "$name" 2>/dev/null || true)" ;;
   esac
 
   if [[ -n "$meta" && -f "$meta" ]]; then
     yaml_env="$(get_env_name_from_yaml "$meta" 2>/dev/null || true)"
   fi
 
-  # Decide primary/fallback env names
   if [[ -n "$header_primary" ]]; then
     primary="$header_primary"
     [[ -n "$header_fallback" ]] && fallback="$header_fallback"
@@ -235,32 +234,233 @@ _choose_env_with_fallback() {
     primary="$yaml_env"
   fi
 
-  # Final fallback chain
   [[ -z "$primary" ]] && primary="default"
   [[ -z "$fallback" ]] && fallback="default"
 
-  local prefix
-  prefix="$MAPI_ROOT/envs/$primary"
+  local prefix="$MAPI_ROOT/envs/$primary"
   if [[ ! -d "$prefix" ]]; then
     echo "[mapi] WARNING: env '$primary' for $kind '$name' not found at $prefix; trying fallback '$fallback'." >&2
     prefix="$MAPI_ROOT/envs/$fallback"
     if [[ ! -d "$prefix" ]]; then
       echo "[mapi] WARNING: fallback env '$fallback' for $kind '$name' not found at $prefix; trying 'default'." >&2
-      primary="default"
       prefix="$MAPI_ROOT/envs/default"
       if [[ ! -d "$prefix" ]]; then
-        echo "[mapi] ERROR: default env not found at $prefix. Please install it (tools/install_envs --only default)." >&2
+        echo "[mapi] ERROR: default env not found at $prefix. Please install it (tools/install_envs.sh tools/yaml/default.yml)." >&2
         return 3
       fi
     fi
   fi
 
-  echo "[mapi] Running $kind '$name' in environment '$primary'." >&2
+  echo "[mapi] Running $kind '$name' in environment '$(basename "$prefix")'." >&2
   printf '%s\n' "$prefix"
 }
 
 # ------------------------------------------------------------
-# Module/pipeline/package/script/tools runner
+# Executable discovery helpers
+# ------------------------------------------------------------
+_is_hidden_path() {
+  local p="$1"
+  [[ "$(basename "$p")" == .* ]] && return 0
+  return 1
+}
+
+# For listing:
+# - any file with +x
+# - OR file ending in .sh/.py/.r/.R (even if not +x)
+_is_runnable_file() {
+  local p="$1"
+  [[ -f "$p" ]] || return 1
+  _is_hidden_path "$p" && return 1
+  if [[ -x "$p" ]]; then return 0; fi
+  case "$p" in
+    *.sh|*.py|*.r|*.R) return 0;;
+  esac
+  return 1
+}
+
+_run_with_interpreter_env() {
+  local prefix="$1"; shift
+  local script="$1"; shift
+
+  case "$script" in
+    *.sh) exec conda run -p "$prefix" bash "$script" "$@";;
+    *.py) exec conda run -p "$prefix" python3 "$script" "$@";;
+    *.r|*.R) exec conda run -p "$prefix" Rscript "$script" "$@";;
+    *) exec conda run -p "$prefix" "$script" "$@";;
+  esac
+}
+
+_run_with_interpreter_noenv() {
+  local script="$1"; shift
+  case "$script" in
+    *.sh) exec bash "$script" "$@";;
+    *.py) exec python3 "$script" "$@";;
+    *.r|*.R) exec Rscript "$script" "$@";;
+    *) exec "$script" "$@";;
+  esac
+}
+
+# ------------------------------------------------------------
+# Module resolution (supports subfolders)
+# ------------------------------------------------------------
+resolve_module_path() {
+  local name="$1"
+
+  # If user provided group/name, use it directly under modules/
+  if [[ "$name" == */* ]]; then
+    local base="$MOD_DIR/$name"
+
+    if [[ -f "$base" ]]; then
+      if ! _is_hidden_path "$base"; then
+        echo "$base"; return 0
+      fi
+    fi
+
+    local ext
+    for ext in sh py r R; do
+      if [[ -f "${base}.${ext}" ]]; then
+        if ! _is_hidden_path "${base}.${ext}"; then
+          echo "${base}.${ext}"; return 0
+        fi
+      fi
+    done
+    return 1
+  fi
+
+  # Otherwise search by stem across modules tree,
+  # but EXCLUDE bin/modules/yaml/ entirely.
+  local -a hits=()
+  local p bn stem
+  while IFS= read -r -d '' p; do
+    bn="$(basename "$p")"
+    stem="${bn%.*}"
+    [[ "$stem" == "$name" ]] && hits+=("$p")
+  done < <(
+    find "$MOD_DIR" \
+      -path "$MOD_DIR/yaml" -prune -o \
+      -type f ! -name '.*' -print0 2>/dev/null || true
+  )
+
+  if [[ "${#hits[@]}" -eq 1 ]]; then
+    echo "${hits[0]}"; return 0
+  elif [[ "${#hits[@]}" -gt 1 ]]; then
+    echo "[mapi] ERROR: command '$name' matches multiple modules:" >&2
+    local h
+    for h in "${hits[@]}"; do
+      echo "  - ${h#"$MOD_DIR"/}" >&2
+    done
+    echo "[mapi] Tip: run as 'mapi <group>/<name>' (or 'mapi modules <group>/<name>')." >&2
+    return 2
+  fi
+
+  return 1
+}
+
+
+# ------------------------------------------------------------
+# Tool resolution (tools root only; group tools handled elsewhere)
+# ------------------------------------------------------------
+resolve_tool_path() {
+  local name="$1"
+  local cand=""
+
+  # exact file
+  if [[ -f "$TOOLS_DIR/$name" ]]; then
+    cand="$TOOLS_DIR/$name"
+  else
+    local ext
+    for ext in sh py r R; do
+      [[ -f "$TOOLS_DIR/$name.$ext" ]] && cand="$TOOLS_DIR/$name.$ext" && break
+    done
+  fi
+
+  [[ -n "$cand" ]] || return 1
+  _is_runnable_file "$cand" || return 2
+  echo "$cand"
+  return 0
+}
+
+# ------------------------------------------------------------
+# Listing helpers (grouped + multi-column; hidden only with -a/--all)
+# ------------------------------------------------------------
+list_modules_grouped() {
+  [[ -d "$MOD_DIR" ]] || return 0
+
+  local -a groups=()
+  local f rel group
+
+  while IFS= read -r -d '' f; do
+    _is_runnable_file "$f" || continue
+    rel="${f#"$MOD_DIR"/}"
+    group="${rel%%/*}"
+    [[ "$rel" == "$group" ]] && group="core"
+    groups+=("$group")
+done < <(
+  find "$MOD_DIR" \
+    -path "$MOD_DIR/yaml" -prune -o \
+    -type f ! -name '.*' -print0 2>/dev/null || true
+)
+
+
+  [[ "${#groups[@]}" -gt 0 ]] || return 0
+  mapfile -t groups < <(printf '%s\n' "${groups[@]}" | sort -u)
+
+  local indent="  "
+  local g bn
+
+  for g in "${groups[@]}"; do
+    [[ "$g" == .* && "$SHOW_ALL" -ne 1 ]] && continue
+
+    echo
+    if [[ "$g" == .* ]]; then
+      printf "%b\n" "${C_DIM}${C_CYAN}${g}:${C_RESET}"
+    else
+      printf "%b\n" "${C_BOLD}${g}:${C_RESET}"
+    fi
+
+    if [[ "$g" == "core" ]]; then
+      find "$MOD_DIR" -maxdepth 1 -type f ! -name '.*' -print0 2>/dev/null \
+        | while IFS= read -r -d '' f; do
+            _is_runnable_file "$f" || continue
+            bn="$(basename "$f")"
+            echo "${bn%.*}"
+          done \
+        | sort \
+        | _print_wall \
+        | sed "s/^/${indent}/"
+    else
+      find "$MOD_DIR/$g" -type f ! -name '.*' -print0 2>/dev/null \
+        | while IFS= read -r -d '' f; do
+            _is_runnable_file "$f" || continue
+            bn="$(basename "$f")"
+            echo "${bn%.*}"
+          done \
+        | sort \
+        | _print_wall \
+        | sed "s/^/${indent}/"
+    fi
+  done
+
+  echo
+  if [[ "$SHOW_ALL" -ne 1 ]]; then
+    printf "%b\n" "${C_DIM}Tip: use -a/--all to show hidden groups (folders starting with '.').${C_RESET}"
+  fi
+}
+
+list_tools_wall() {
+  [[ -d "$TOOLS_DIR" ]] || return 0
+  find "$TOOLS_DIR" -maxdepth 1 -type f ! -name '.*' -print0 2>/dev/null \
+    | while IFS= read -r -d '' f; do
+        _is_runnable_file "$f" || continue
+        bn="$(basename "$f")"
+        echo "${bn%.*}"
+      done \
+    | sort \
+    | _print_wall
+}
+
+# ------------------------------------------------------------
+# Runner (explicit)
 # ------------------------------------------------------------
 run_item() {
   local t="$1"; shift || true
@@ -268,8 +468,12 @@ run_item() {
 
   case "$t" in
     modules)
-      local entry="$MOD_DIR/$name.sh"
-      [[ -x "$entry" ]] || { echo "mapi: module not found/executable: $entry" >&2; exit 4; }
+      local entry
+      entry="$(resolve_module_path "$name")" || {
+        echo "mapi: module not found: $name" >&2
+        exit 4
+      }
+      _is_runnable_file "$entry" || { echo "mapi: module not runnable: $entry" >&2; exit 4; }
 
       local prefix
       prefix="$(_choose_env_with_fallback module "$name" "$entry" module)" || exit $?
@@ -277,25 +481,16 @@ run_item() {
       export MAPI_REPO_ROOT="$MAPI_ROOT"
       export MAPI_MODULE_YAML="$(find_module_yaml "$name" 2>/dev/null || true)"
 
-      # If we're in an MSF, gently suggest OUTDIR to modules via env
-      if [[ -n "${MAPI_SAMPLE_OUT:-}" ]]; then
-        export OUTDIR="${OUTDIR:-$MAPI_SAMPLE_OUT}"
-      fi
-
-      exec conda run -p "$prefix" bash "$entry" "$@"
+      _run_with_interpreter_env "$prefix" "$entry" "$@"
       ;;
 
     tools)
-      local sh="$TOOLS_DIR/$name.sh"
-      local py="$TOOLS_DIR/$name.py"
-      if [[ -f "$sh" && "$(basename "$sh")" != .* ]]; then
-        exec bash "$sh" "$@"
-      elif [[ -f "$py" && "$(basename "$py")" != .* ]]; then
-        exec python3 "$py" "$@"
-      else
-        echo "mapi: tool not found: $name (looked for $sh or $py)" >&2
+      local cand
+      cand="$(resolve_tool_path "$name" 2>/dev/null)" || {
+        echo "mapi: tool not found: $name" >&2
         exit 4
-      fi
+      }
+      _run_with_interpreter_noenv "$cand" "$@"
       ;;
 
     *)
@@ -306,6 +501,49 @@ run_item() {
 }
 
 # ------------------------------------------------------------
+# Naked command runner: "mapi <command> ..."
+#   preference: module > tool
+#   if both exist => error with how to disambiguate
+# ------------------------------------------------------------
+run_naked_command() {
+  local cmd="$1"; shift || true
+
+  local mod_path="" tool_path=""
+  local mod_rc=1 tool_rc=1
+
+  mod_path="$(resolve_module_path "$cmd")" && mod_rc=0 || mod_rc=$?
+  tool_path="$(resolve_tool_path "$cmd")" && tool_rc=0 || tool_rc=$?
+
+  # Ambiguous: exists as both a module and a tool
+  if [[ "$mod_rc" -eq 0 && "$tool_rc" -eq 0 ]]; then
+    echo "[mapi] ERROR: '$cmd' exists as BOTH a module and a tool." >&2
+    echo "  module: ${mod_path#"$MAPI_ROOT"/}" >&2
+    echo "  tool  : ${tool_path#"$MAPI_ROOT"/}" >&2
+    echo "Disambiguate with:" >&2
+    echo "  mapi modules $cmd ..." >&2
+    echo "  mapi tools   $cmd ..." >&2
+    exit 2
+  fi
+
+  # Module match
+  if [[ "$mod_rc" -eq 0 ]]; then
+    local prefix
+    prefix="$(_choose_env_with_fallback module "$cmd" "$mod_path" module)" || exit $?
+    export MAPI_REPO_ROOT="$MAPI_ROOT"
+    export MAPI_MODULE_YAML="$(find_module_yaml "$cmd" 2>/dev/null || true)"
+    _run_with_interpreter_env "$prefix" "$mod_path" "$@"
+  fi
+
+  # Tool match
+  if [[ "$tool_rc" -eq 0 ]]; then
+    _run_with_interpreter_noenv "$tool_path" "$@"
+  fi
+
+  echo "mapi: unknown command '$cmd'. Run 'mapi --help'." >&2
+  exit 2
+}
+
+# ------------------------------------------------------------
 # HPC tag expander for args ([scratch], [home])
 # ------------------------------------------------------------
 _expand_hpc_args() {
@@ -313,12 +551,10 @@ _expand_hpc_args() {
   local -a out=()
   local host home_root scratch_root
 
-  # Prefer env exports from installer
   host="${MAPI_REMOTE_HOST:-}"
   home_root="${REMOTE_MAPI_HOME:-}"
   scratch_root="${REMOTE_MAPI_SCRATCH:-}"
 
-  # Fill from JSON if missing
   if { [[ -z "$host" || -z "$home_root" || -z "$scratch_root" ]] && [[ -f "$CFG_JSON" ]] && have_jq; }; then
     host="${host:-$(jq -r --arg h "$hpc" '.clusters[$h].host // empty' "$CFG_JSON")}"
     home_root="${home_root:-$(jq -r --arg h "$hpc" '.clusters[$h].home_root // empty' "$CFG_JSON")}"
@@ -329,11 +565,7 @@ _expand_hpc_args() {
   for arg in "$@"; do
     case "$arg" in
       "[scratch]"|"[scratch]/")
-        if [[ -n "$scratch_root" ]]; then
-          out+=("$scratch_root/scratch")
-        else
-          out+=("$arg")
-        fi
+        [[ -n "$scratch_root" ]] && out+=("$scratch_root/scratch") || out+=("$arg")
         ;;
       "[scratch]"/*)
         if [[ -n "$scratch_root" ]]; then
@@ -344,11 +576,7 @@ _expand_hpc_args() {
         fi
         ;;
       "[home]"|"[home]/")
-        if [[ -n "$home_root" ]]; then
-          out+=("$home_root")
-        else
-          out+=("$arg")
-        fi
+        [[ -n "$home_root" ]] && out+=("$home_root") || out+=("$arg")
         ;;
       "[home]"/*)
         if [[ -n "$home_root" ]]; then
@@ -374,112 +602,103 @@ print_global_help() {
   cat <<EOF
 mapi: MalariAPI CLI
 
-HPC usage:
-  mapi <hpc-name> <command> [args...]
-    e.g. mapi rivanna submit --cmd "echo hi > [scratch]/test.out"
+Quick usage (preferred):
+  mapi [--all|-a] <command> [args...]
+    - command can be a module (bin/modules/**) or a tool (tools/*)
 
-Module/pipeline/package usage:
-  mapi modules
-  mapi modules <name> [args...]
-  mapi tools
-  mapi tools <name> [args...]
+Explicit usage (still supported):
+  mapi [--all|-a] modules [name|group/name] [args...]
+  mapi [--all|-a] tools   [name] [args...]
+  mapi [--all|-a] <hpc-name> <command> [args...]
 
-Available HPCs, or other systems (tools/* directories):
+HPC example:
+  mapi rivanna submit --cmd "echo hi > [scratch]/test.out"
+
 EOF
 
   if [[ -d "$TOOLS_DIR" ]]; then
+    echo "Available HPCs / tool-groups:"
     local d bn
     for d in "$TOOLS_DIR"/*; do
       [[ -d "$d" ]] || continue
       bn="$(basename "$d")"
       case "$bn" in
-        base|yaml|misc|templates|hpc_templates|scripts|bin|_*|miniconda3)
+        base|yaml|misc|templates|bin|_*|miniconda3)
           continue
           ;;
       esac
       echo "  - $bn"
     done
+    echo
   fi
 
+  echo "Discovered:"
+  echo "  tools (root):"
+  list_tools_wall | sed 's/^/    /' || true
   echo
-  echo "Discovered (hidden entries suppressed):"
-  echo "  modules  :";   list_items modules   | sed 's/^/    - /' || true
-  echo "  tools    :";   list_items tools     | sed 's/^/    - /' || true
+  echo "  modules (grouped):"
+  list_modules_grouped | sed 's/^/    /' || true
 }
 
 # ------------------------------------------------------------
 # Main router
 # ------------------------------------------------------------
-if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
+if [[ $# -eq 0 || "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   print_global_help
   exit 0
 fi
 
-# Case A (message): "mapi <subdir in /tools>" → list its tools
+# Case A: "mapi <subdir in /tools>" => list its executables
 if [[ $# -eq 1 && -d "$TOOLS_DIR/$1" ]]; then
   case "$1" in
-    base|yaml|misc|templates|hpc_templates|scripts|bin|_*|miniconda3)
-      ;; # fall through to unknown command
+    base|yaml|misc|templates|bin|_*|miniconda3)
+      ;; # fall through
     *)
       echo "'$1' tools:"
       for f in "$TOOLS_DIR/$1"/*; do
-        [[ -x "$f" ]] || continue
+        _is_runnable_file "$f" || continue
         bn="$(basename "$f")"
-        echo "  - $bn"
-      done
+        echo "  - ${bn%.*}"
+      done | sort
       exit 0
       ;;
   esac
 fi
 
-# Case B (runner): "mapi <hpc> <cmd> ..." → HPC dispatch
+# Case B: "mapi <hpc> <cmd> ..." => HPC dispatch
 if [[ $# -ge 2 && -d "$TOOLS_DIR/$1" && -x "$TOOLS_DIR/$1/$2" ]]; then
   _mapi_hpc="$1"
   _mapi_cmd="$2"
   shift 2
 
-  # No remaining args → just run the HPC tool as-is
   if [[ $# -eq 0 ]]; then
     exec "$TOOLS_DIR/$_mapi_hpc/$_mapi_cmd"
   fi
 
-  # Otherwise expand [scratch]/[home] tokens in the remaining args
   mapfile -d '' _expanded < <(_expand_hpc_args "$_mapi_hpc" "$@")
   exec "$TOOLS_DIR/$_mapi_hpc/$_mapi_cmd" "${_expanded[@]}"
 fi
 
-# Case D: "mapi tools <name> ..." / "mapi modules <name> ..." / etc.
+# Case C: explicit "modules" / "tools"
 case "${1:-}" in
   modules)
-    t="$1"; shift || true
+    shift || true
     if [[ $# -eq 0 ]]; then
-      list_items "$t"
+      list_modules_grouped
       exit 0
-    else
-      run_item "$t" "$@"
     fi
+    run_item modules "$@"
     ;;
   tools)
-    t="$1"; shift || true
-
-    # No subcommand → list tool groups
+    shift || true
     if [[ $# -eq 0 ]]; then
-      list_items "$t"
+      list_tools_wall
       exit 0
     fi
-
-    tool="$1"; shift || true
-
-    # Validate tool exists and is executable
-    if [[ -x "$TOOLS_DIR/$tool" ]]; then
-      exec "$TOOLS_DIR/$tool" "$@"
-    fi
-
-    echo "mapi tools: unknown tool '$tool'" >&2
-    exit 2
+    run_item tools "$@"
     ;;
 esac
 
-# Fallback
-echo "mapi: unknown command. Run 'mapi --help'." >&2
-exit 2
+# Case D: naked command => module or tool
+cmd="$1"; shift || true
+run_naked_command "$cmd" "$@"
