@@ -1,56 +1,102 @@
-# MAPI Codegen MVP v2 (modules/ + templates/)
+# MyAPI
 
-This bundle updates the previous MVP to match your current layout:
-- NO `mapi.d/`
-- Modules live under `modules/<name>/`
-- Templates live under `templates/`
-- AI implementation lives under `tools/ai/` (hidden from users)
-- User runs everything via `mapi <command> ...`
+**(MAPI)** is a lightweight, human-centered workflow framework for bioinformatics, designed to make complex analyses readable, reproducible, and accessible ΓÇö locally, on HPC, and in low-resource environments.
 
-## Files included
+MAPI isn't desinged for workflows and pipelines of infinite scale - it is for researchers and lab-scientists who want to write and manage their code without being impeded by many of the issues that make computational studies unapproachble to the inexperienced. 
 
-- `modules/codegen/run` : user-facing entrypoint (`mapi codegen ...`)
-- `tools/ai/mapi_codegen.py` : generator (static analysis + optional LLM via Ollama)
-- `tools/ai/spec_schema.json` : schema documentation for the spec
-- `templates/module.{python,r,bash,other}.tmpl` : wrapper templates
-- `examples/filter_tsv.py` : tiny example script
-- `examples/make_codegen_demo.sh` : demo runner
+## The only requriement to use is a basic understanding of how to navigate bash. 
+---
 
-## Install
+   ### Set up base MAPI
+   1. [Get your computer ready](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/setupyourcomputer.md)
+   2. [Install base MAPI](docs/setup_MalariAPI.md)
+   3. [Get familiar with MAPI's structure and workflow](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/GetFamiliarWithMapi.md)
+   ### Set up advanced MAPI
+   4. [Contributer user guide for MAPI](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/contributer.md)
+   5. [Set up job subisison and sycing to a high performance computing (HPC) cluster](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/HPC_install.md)   
+   6. [Creating modules and pipelines](docs/wrapping_tools.md)
+   ### Helpful scripts
+   7. [A guide on how to backup, and cleanup local distros of Ubuntu](docs/distro_backup.md)
 
-Unzip into your `~/MalariAPI/` so it merges these folders:
-- `modules/`
-- `tools/ai/`
-- `templates/`
-- `examples/`
 
-## Quick start (offline, no LLM)
+## Why MAPI?
 
-From your MalariAPI root:
+### Human-readable, predictable structure
 
-```bash
-bash examples/make_codegen_demo.sh
+MAPI enforces a clear and discoverable project layout,
+This makes projects easier to understand, debug, and share ΓÇö even months later.
+To increase speed and de-clutter workflows, MAPI includes sever quality of life features.
+---
+
+### MAPI Sample Folders (MSFs): zero-path workflows
+
+MAPI introduces **MAPI Sample Folders (MSFs)**:
+
+```
+mapi-sampleName/
+Γö£ΓöÇΓöÇ sampleName-output/
+Γö£ΓöÇΓöÇ input_files.fastq.gz
+ΓööΓöÇΓöÇ summary.txt
 ```
 
-## Using Ollama (optional)
+When working inside an MSF:
 
-```bash
-mapi codegen   --in path/to/script.py   --name my_module   --out-root ~/MalariAPI   --backend ollama   --ollama-model llama3.1:8b-instruct
-```
+- You do not need to type file paths
+- Outputs are automatically written to the correct backend folder
+- File naming follows a consistent, machine-readable convention
 
-## Outputs generated
+No long paths. No guessing where results went.
 
-For module `<name>`:
+## [Look at a minimal **MSF** workflow example here](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/MSF.example.md)
 
-- `modules/<name>/run`        (wrapper; pass-through args; loud logging)
-- `modules/<name>/module.yml` (spec dump; JSON formatted)
-- `tools/yaml/<name>.yml`     (conda env spec)
+---
 
-## Logging
+### Idempotent modules (less code, fewer mistakes)
 
-Both `mapi codegen` and the generated wrappers print explicit messages about:
-- inferred MAPI_ROOT
-- inferred language and dependencies (when applicable)
-- output paths written
-- any fallback decisions (e.g., placeholder entrypoint)
+MAPI replaces this with a single metadata header that declares:
 
+- inputs and options  
+- defaults and required arguments  
+- outputs  
+- environments  
+- required resources  
+
+From this header, MAPI automatically builds the argument parser, validates required inputs, documents usage, and standardizes outputs.
+
+---
+
+### Seamless HPC (High performance computer/cluster) passthrough
+
+MAPI treats HPC clusters as first-class citizens.
+
+Local and remote workflows use the same commands, and path tokens like `[scratch]` and `[home]` expand automatically.
+
+[Look at a minimal **HPC** workflow example here](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/HPC.example.md)
+---
+
+### Git integration without Git expertise
+
+MAPI includes safe Git wrappers designed for lab-based scientists (and computer scientists).
+
+You can collaborate without becoming a Git expert.
+
+## [Look at a minimal **Git** workflow example here](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/Git.example.md)
+---
+
+### Backwards compatibility by design
+
+Any executable script can be run as a module. Migration is gradual and opt-in.
+All other organizational bennefits (besides MSFs) will still apply. 
+
+---
+
+### Designed for global and low-resource contexts
+
+MAPI is suitable for teaching, collaboration, and institutions without dedicated DevOps support.
+
+---
+
+
+## In short
+
+MAPI prioritizes clarity, reproducibility, and human usability.
