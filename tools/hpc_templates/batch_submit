@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${MAPI_DEBUG:-0}" == "1" ]] && set -x
+
+usage() {
+  cat <<'U'
+Usage:
+  mapi rivanna batch_submit
+      --tsv FILE.tsv
+      --cols "c1,c2,c3"
+      --name-template "job_{ROW}_{sample}"
+      --cmd "program --in {r1} --out {sample}.bam"
+      [--dry-run]
+      [--continue-on-error]
+      -- <any args for: mapi rivanna submit ...>
+
+Notes:
+  * TSV is TAB-separated, NO HEADER.
+  * You MUST provide --cols with the same number of fields as each TSV row.
+  * Placeholders in --cmd and --name-template use curly braces, e.g. {sample}, {r1}, {r2}.
+  * {ROW} is available (1-based row index).
+  * Built-in placeholder:
+      {MAPI} expands to literal "[home]/bin/mapi" (NOT expanded locally).
+    Use this so the remote submit can rewrite [home] correctly.
+
+  * Everything after `--` is passed directly to `mapi rivanna submit`.
+    Example:
+      -- --env-name crow --out [scratch]/run1 --time 12:00:00 --cpus 8
+
+  * Windows/Excel TSVs (CRLF) are supported: trailing '\r' is stripped per field.
+
+Examples:
+  # TSV rows: sample<TAB>r1<TAB>r2  (no header)
+  mapi rivanna batch_submit \
+    --tsv inputs.tsv \
+    --cols "sample,r1,r2" \
+    --name-template "clean_{sample}" \
+    --cmd "{MAPI} modules fastp_clean --r1 {r1} --r2 {r2} --detect-adapters --cut-front --cut-tail --n-base-limit 20" \
+    -- --env-name default --out [scratch]/mapi_logs --cpus 1 --nodes 1
+
+     mapi rivanna batch_submit   --tsv clover.batch.tsv   --cols "sample,r1,r2"   --name-template "clean_{sample}"   --cmd "{MAPI} modules fastp_clean --r1 {r1} --r2 {r2} --detect-adapters --cut-front --cut-tail --n-base-limit 20"   -- --env-name default --out [scratch]/clover/raw/ --cpus 1 --nodes 1 --partition standard --allocation gulermalarialab
+
+  # Dry run
+  mapi rivanna batch_submit ... --dry-run -- --env-name default --out [scratch]/test
+
+  # Continue even if one submission fails
+  mapi rivanna batch_submit ... --continue-on-error -- --env-name default --out [scratch]/test
+U
+}
+
+TSV=""
+COLS_CSV=""
+NAME_TEMPLATE="batch_{ROW}"
+CMD_TEMPLATE=""
+DRY_RUN=0
+CONTINUE_ON_ERROR=0
+SUBMIT_ARGS=()
+
+# ----------------- parse args until `--` -----------------
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tsv) TSV="$2"; shift 2;;
+    --cols) COLS_CSV="$2"; shift 2;;
+    --name-template) NAME_TEMPLATE="$2"; shift 2;;
+    --cmd) CMD_TEMPLATE="$2"; shift 2;;
+    --dry-run) DRY_RUN=1; shift;;
+    --continue-on-error) CONTINUE_ON_ERROR=1; shift;;
+    -h|--help) usage; exit 0;;
+    --) shift; SUBMIT_ARGS=("$@"); break;;
+    *) echo "Unknown arg: $1" >&2; usage; exit 2;;
+  esac
+done
+
+[[ -n "$TSV" ]] || { echo "ERROR: --tsv required" >&2; exit 2; }
+[[ -n "$COLS_CSV" ]] || { echo "ERROR: --cols required (no-header TSV)" >&2; exit 2; }
+[[ -n "$CMD_TEMPLATE" ]] || { echo "ERROR: --cmd required" >&2; exit 2; }
+
+IFS=',' read -r -a COLS <<< "$COLS_CSV"
+[[ "${#COLS[@]}" -gt 0 ]] || { echo "ERROR: --cols parsed to zero columns" >&2; exit 2; }
+
+# Disallow user passing --cmd/--name through to submit; we own those per-row.
+for a in "${SUBMIT_ARGS[@]}"; do
+  if [[ "$a" == "--cmd" || "$a" == "--name" ]]; then
+    echo "ERROR: Do not pass --cmd/--name after --. Use --cmd and --name-template on batch_submit." >&2
+    exit 2
+  fi
+done
+
+# ----------------- template expansion -----------------
+expand_template() {
+  local tmpl="$1"
+  local -n _keys="$2"
+  local -n _vals="$3"
+  local row="$4"
+
+  local out="$tmpl"
+
+  # Built-ins
+  out="${out//\{ROW\}/$row}"
+  # IMPORTANT: {MAPI} becomes a literal token string; do NOT expand locally.
+  out="${out//\{MAPI\}/[home]\/bin\/mapi}"
+
+  # Column placeholders
+  local i
+  for i in "${!_keys[@]}"; do
+    local k="${_keys[$i]}"
+    local v="${_vals[$i]}"
+    out="${out//\{$k\}/$v}"
+  done
+
+  printf '%s' "$out"
+}
+
+failures=0
+row=0
+
+# ----------------- read TSV (no header) -----------------
+
+exec 3< "$TSV"
+while IFS=$'\t' read -r -a FIELDS <&3 || [[ "${#FIELDS[@]}" -gt 0 ]]; do
+  # Skip empty lines
+  [[ "${#FIELDS[@]}" -eq 0 ]] && continue
+  [[ -z "${FIELDS[*]//[[:space:]]/}" ]] && continue
+  # Skip comment lines beginning with #
+  [[ "${FIELDS[0]}" =~ ^# ]] && continue
+
+  # Strip CR from CRLF files (Windows TSV)
+  for i in "${!FIELDS[@]}"; do
+    FIELDS[$i]="${FIELDS[$i]%$'\r'}"
+  done
+
+  row=$((row+1))
+
+  if [[ "${#FIELDS[@]}" -ne "${#COLS[@]}" ]]; then
+    echo "ERROR: Row $row has ${#FIELDS[@]} fields but --cols has ${#COLS[@]} columns" >&2
+    echo "  Row $row raw fields: ${FIELDS[*]}" >&2
+    exit 2
+  fi
+
+  job_name="$(expand_template "$NAME_TEMPLATE" COLS FIELDS "$row")"
+  job_cmd="$(expand_template "$CMD_TEMPLATE" COLS FIELDS "$row")"
+
+  cmd=( mapi rivanna submit --name "$job_name" --cmd "$job_cmd" )
+  if [[ "${#SUBMIT_ARGS[@]}" -gt 0 ]]; then
+    cmd+=( "${SUBMIT_ARGS[@]}" )
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '[DRY-RUN] %q ' "${cmd[@]}"
+    printf '\n'
+    continue
+  fi
+
+  echo "[batch_submit] submitting row $row as job: $job_name"
+  if ! "${cmd[@]}" </dev/null; then
+    echo "[batch_submit] ERROR: submission failed for row $row ($job_name)" >&2
+    failures=$((failures+1))
+    if [[ "$CONTINUE_ON_ERROR" -eq 1 ]]; then
+      echo "[batch_submit] continuing (failures so far: $failures)" >&2
+    else
+      echo "[batch_submit] stopping (use --continue-on-error to proceed past failures)" >&2
+      exit 1
+    fi
+  fi
+
+  # Clear fields so the "|| [[ ... ]]" clause doesn't reuse old data at EOF
+  FIELDS=()
+done
+exec 3<&-
+
+   
+
+if [[ "$row" -eq 0 ]]; then
+  echo "ERROR: No runnable rows found in TSV: $TSV" >&2
+  exit 2
+fi
+
+if [[ "$failures" -gt 0 ]]; then
+  echo "[batch_submit] Completed with $failures submission failure(s)." >&2
+  exit 1
+fi
+
+echo "[batch_submit] Completed successfully: submitted $row job(s)."

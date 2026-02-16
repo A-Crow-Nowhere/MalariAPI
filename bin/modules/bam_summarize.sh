@@ -304,29 +304,7 @@ sample_from_path() {
   echo "$b"
 }
 
-# Subsample BAM for qualimap using samtools view -s seed.frac, then sort+index
-make_subsample_bam() {
-  local bam="$1"
-  local outbam="$2"
-  local frac="$3"
-  local seed="$4"
 
-  # samtools -s expects FLOAT like "42.25" meaning seed=42 frac=0.25
-  # We'll construct seed.frac with frac to 6 decimals
-  local frac_fmt
-  frac_fmt="$(awk -v f="$frac" 'BEGIN{printf "%.6f", f}')"
-
-  local sf="${seed}.${frac_fmt#0.}"  # e.g. 42.250000 -> "42.250000"
-  # If frac is 1.0, avoid -s entirely (no subsampling)
-  if awk -v f="$frac" 'BEGIN{exit !(f>=0.999999)}'; then
-    cp -f "$bam" "$outbam"
-  else
-    samtools view -@ "$THREADS" -b -s "$sf" "$bam" > "$outbam"
-  fi
-
-  samtools sort -@ "$THREADS" -o "$outbam" "$outbam"
-  samtools index -@ "$THREADS" "$outbam"
-}
 
 run_qualimap() {
   local bam="$1"
@@ -336,12 +314,10 @@ run_qualimap() {
   mkdir -p "$qdir"
   # qualimap bamqc writes HTML/PDF/plots under outdir
   # Use --java-mem-size conservatively; user can adjust by env var if needed.
-  local jmem="${QUALIMAP_JAVA_MEM:-4G}"
   qualimap bamqc \
     -bam "$bam" \
     -outdir "$qdir" \
     -nt "$QUALI_THREADS" \
-    --java-mem-size="$jmem" \
     >/dev/null 2>&1 || {
       echo "[warn] qualimap failed for $sample ($bam); continuing." >&2
       return 0
@@ -407,26 +383,7 @@ for bam in "${BAMS[@]}"; do
     tmpqdir="$OUTDIR/.tmp_qualimap"
     mkdir -p "$tmpqdir"
 
-    # Determine fraction if --qualimap-nreads is requested
-    frac=""
-    if [[ -n "$QUALI_NREADS" ]]; then
-      # Use flagstat_total as record count proxy
-      # fraction = N / total_records, clamp to 1.0
-      frac="$(awk -v n="$QUALI_NREADS" -v t="$fs_total" 'BEGIN{
-        if(t<=0){print "1.0"; exit}
-        f=n/t
-        if(f>1) f=1
-        if(f<=0) f=0.000001
-        printf "%.6f\n", f
-      }')"
-    elif [[ -n "$QUALI_FRAC" ]]; then
-      frac="$QUALI_FRAC"
-    fi
-
-    if [[ -n "$frac" ]]; then
-      qbam="$tmpqdir/${sample}.qualimap_subsample.bam"
-      make_subsample_bam "$bam" "$qbam" "$frac" "$QUALI_SEED"
-    fi
+   fi
 
     run_qualimap "$qbam" "$sample" "$qdir"
   fi

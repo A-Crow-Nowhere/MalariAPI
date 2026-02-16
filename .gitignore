@@ -24,6 +24,7 @@ envs/**
 
 genomes/
 tools/miniconda3/
+tools/rivanna
 projects/
 .gen/
 *.bak

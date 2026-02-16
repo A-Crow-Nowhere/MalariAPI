@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MAPI Module Spec (MVP v2)",
+  "type": "object",
+  "required": [
+    "name",
+    "description",
+    "language",
+    "entrypoint",
+    "inputs",
+    "outputs",
+    "dependencies"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{1,63}$"
+    },
+    "description": {
+      "type": "string"
+    },
+    "language": {
+      "type": "string",
+      "enum": [
+        "python",
+        "r",
+        "bash",
+        "other"
+      ]
+    },
+    "entrypoint": {
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "flag",
+          "type",
+          "required",
+          "description"
+        ],
+        "properties": {
+          "flag": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "int",
+              "float",
+              "bool",
+              "path",
+              "enum",
+              "list"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "default": {},
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "description"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "required": [
+        "cli_tools",
+        "conda_packages",
+        "python_pip",
+        "r_packages"
+      ],
+      "properties": {
+        "cli_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conda_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "python_pip": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "cpus": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mem_gb": {
+          "type": "number",
+          "minimum": 0.5
+        },
+        "time": {
+          "type": "string"
+        },
+        "gpu": {
+          "type": "boolean"
+        }
+      }
+    },
+    "example": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "filter_tsv",
+  "description": "Auto-generated MAPI command for filter_tsv",
+  "language": "python",
+  "entrypoint": {
+    "command": "",
+    "notes": ""
+  },
+  "inputs": [
+    {
+      "flag": "--in",
+      "type": "string",
+      "required": false,
+      "default": null,
+      "description": "Auto-detected flag (argparse). Please edit description/types."
+    },
+    {
+      "flag": "--min",
+      "type": "string",
+      "required": false,
+      "default": null,
+      "description": "Auto-detected flag (argparse). Please edit description/types."
+    },
+    {
+      "flag": "--out",
+      "type": "string",
+      "required": false,
+      "default": null,
+      "description": "Auto-detected flag (argparse). Please edit description/types."
+    }
+  ],
+  "outputs": [],
+  "dependencies": {
+    "cli_tools": [],
+    "conda_packages": [],
+    "python_pip": [
+      "pandas"
+    ],
+    "r_packages": [],
+    "notes": ""
+  },
+  "resources": {
+    "cpus": 1,
+    "mem_gb": 2,
+    "time": "01:00:00",
+    "gpu": false
+  },
+  "example": "",
+  "notes": ""
+}

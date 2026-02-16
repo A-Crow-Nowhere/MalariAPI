@@ -1,0 +1,16 @@
+name: svcrows
+channels:
+  - conda-forge
+dependencies:
+  - r-base >=4.2,<4.5
+  - r-tidyverse
+  - r-dplyr
+  - r-purrr
+  - r-stringr
+  - r-stringi
+  - r-cli
+  - r-data.table
+  - r-optparse  # harmless; sometimes useful for downstream tweaks
+  - coreutils
+  - gawk
+  - sed

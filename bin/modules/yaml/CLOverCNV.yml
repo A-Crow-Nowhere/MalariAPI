@@ -1,0 +1,31 @@
+name: CLOverCNV
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.10
+  - pip
+  - numpy
+  - pandas
+  - pybigwig
+  - pysam
+  - samtools>=1.17
+  - bedtools>=2.31
+  - mosdepth>=0.3.7
+  - jq
+  - ucsc-bigwigtobedgraph
+  - ucsc-bigwiginfo
+  - ucsc-bedgraphtobigwig
+  - htslib
+  - tabix
+  - pigz
+  - coreutils
+  # ----- R -----
+  - r-base=4.3*
+  - r-data.table
+  - r-R.utils
+  - r-jsonlite
+  - r-flsa
+  - r-changepoint 
+  - r-mgcv
+

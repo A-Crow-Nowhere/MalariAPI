@@ -1,0 +1,20 @@
+name: exomedepth_call
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # Pin R to 4.3 to align with Bioconductor 3.19 ecosystem
+  - r-base=4.3.*
+  - r-data.table
+
+  # Bioconductor stack (conda packages)
+  - r-exomedepth
+  - bioconductor-genomicranges
+  - bioconductor-rtracklayer
+  - bioconductor-rsamtools
+
+  # Common system libs these often need (conda-provided)
+  - libxml2
+  - libcurl
+  - openssl
+  - zlib

@@ -1,0 +1,15 @@
+name: lumpy
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - lumpy-sv
+  - samtools
+  - python
+  - samtools>=1.17
+  - bedtools>=2.31
+  - awk
+  - htslib
+  - tabix  
+  - numpy
+  - pysam
