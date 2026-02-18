@@ -343,6 +343,8 @@ if [[ -n "$BASE" ]]; then
 fi
 RMT
 
+source "$MINICONDA_HOME/etc/profile.d/conda.sh"
+conda activate base
 ###############################################################################
 # 11) REMOTE env file only (NO ~/.bashrc modifications)
 ###############################################################################
