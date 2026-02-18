@@ -1,362 +1,377 @@
 #!/usr/bin/env bash
-# MAPI one-shot installer (clean + idempotent)
-# - Clones/updates MalariAPI
-# - Ensures Miniconda in $ROOT/tools/miniconda3 (unless overridden)
-# - Adds MAPI bin paths to PATH (bash/zsh)
-# - Adds conda init (source conda.sh) to rc (bash/zsh)
-# - Optionally builds a default env via tools/install_envs.sh + tools/yaml/default.yml
-#
-# Assumptions (matches your repo conventions):
-# - Runtime conda envs live in:   $ROOT/envs/
-# - YAML specs live in:           $ROOT/tools/yaml/  and  $ROOT/pipeline/yaml/
-#
 set -euo pipefail
 
-say(){ printf '%s\n' "$*" >&2; }
-die(){ say "ERROR: $*"; exit 1; }
-have(){ command -v "$1" >/dev/null 2>&1; }
+###############################################################################
+# MAPI HPC installer (updated for current layout + "mapi summons conda" model)
+#
+# Key updates:
+#  - NO remote ~/.bashrc conda init (conda should not be global; mapi summons it)
+#  - Remote base env update reads YAML from tools/yaml/base.(yml|yaml) only
+#  - Remote Miniconda download supports curl OR wget
+#  - Excludes template uses __HPC_NAME__ placeholder (safer than <HPC_NAME>)
+#  - Writes MAPI_CONDA_HOME into bin/.mapi.env (canonical conda location)
+#  - Removes destructive rm -rf of tools/hpc_templates on remote
+#  - Removes redundant tar exclude of tools/$HPC_NAME/submit
+###############################################################################
 
-# ======== DEFAULT CONFIG (overridable via env or flags) ========
-REPO_OWNER="${REPO_OWNER:-A-Crow-Nowhere}"        # where we clone from (fork/user)
-UPSTREAM_OWNER="${UPSTREAM_OWNER:-A-Crow-Nowhere}"# canonical upstream
-REPO_NAME="${REPO_NAME:-MalariAPI}"
-BRANCH="${BRANCH:-main}"
-ROOT="${ROOT:-$HOME/MalariAPI}"
+###############################################################################
+# 0) BASIC SETUP
+###############################################################################
 
-MINICONDA_HOME="${MINICONDA_HOME:-}"             # default: $ROOT/tools/miniconda3
+MAPI_ROOT="$HOME/MalariAPI"
+CFG="$MAPI_ROOT/tools/hpc_config.json"
 
-# repo-local git identity (optional)
-GIT_USER_NAME="${GIT_USER_NAME:-}"
-GIT_USER_EMAIL="${GIT_USER_EMAIL:-}"
+need(){ command -v "$1" >/dev/null 2>&1 || { echo "Missing: $1" >&2; exit 3; }; }
+need ssh; need rsync; need jq
 
-# env install behavior
-INSTALL_DEFAULT_ENV="${INSTALL_DEFAULT_ENV:-1}"   # 1=yes, 0=no
-DEFAULT_ENV_YAML="${DEFAULT_ENV_YAML:-}"          # default: auto-detect
-ACTIVATE_DEFAULT_ENV="${ACTIVATE_DEFAULT_ENV:-0}" # 1=yes (in current shell), 0=no
-# ===============================================================
+mkdir -p "$MAPI_ROOT/tools"
 
-usage() {
-  cat <<EOF
-Usage: $(basename "$0") [options]
+###############################################################################
+# 1) FIGURE OUT HPC_NAME, HOST, PARTITION, ALLOCATION
+###############################################################################
 
-Options:
-  --branch, -b <name>            Git branch to use (default: $BRANCH)
-  --root <path>                  Install root (default: $ROOT)
-  --repo-owner <name>            GitHub owner to clone from (default: $REPO_OWNER)
-  --upstream-owner <name>        Canonical GitHub owner (default: $UPSTREAM_OWNER)
-  --repo-name <name>             GitHub repo name (default: $REPO_NAME)
-  --miniconda-home <path>        Existing Miniconda root to reuse (default: \$ROOT/tools/miniconda3)
-  --git-name <name>              git config user.name for this repo (local only)
-  --git-email <email>            git config user.email for this repo (local only)
+HPC_NAME="${1:-}"
+HOST="${2:-}"
+PARTITION="${3:-}"
+ALLOCATION="${4:-}"
 
-  --no-default-env               Skip building default env (tools/install_envs.sh)
-  --default-env-yaml <path>      YAML spec for default env (default: auto-detect)
-  --activate-default             After install, activate default env in THIS shell
-
-  -h, --help                     Show this help and exit
-
-Examples:
-  ./install_mapi.sh
-  ./install_mapi.sh --repo-owner <yourfork> --upstream-owner A-Crow-Nowhere
-  ./install_mapi.sh --no-default-env
-EOF
-}
-
-# ----- Parse CLI args ---------------------------------------------------------
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --branch|-b) BRANCH="$2"; shift 2;;
-    --root) ROOT="$2"; shift 2;;
-    --repo-owner) REPO_OWNER="$2"; shift 2;;
-    --upstream-owner) UPSTREAM_OWNER="$2"; shift 2;;
-    --repo-name) REPO_NAME="$2"; shift 2;;
-    --miniconda-home) MINICONDA_HOME="$2"; shift 2;;
-    --git-name) GIT_USER_NAME="$2"; shift 2;;
-    --git-email) GIT_USER_EMAIL="$2"; shift 2;;
-
-    --no-default-env) INSTALL_DEFAULT_ENV=0; shift 1;;
-    --default-env-yaml) DEFAULT_ENV_YAML="$2"; shift 2;;
-    --activate-default) ACTIVATE_DEFAULT_ENV=1; shift 1;;
-
-    --global-conda)
-      GLOBAL_CONDA=1; shift 1 ;;
-
-    -h|--help) usage; exit 0;;
-    *) die "Unknown option: $1";;
-  esac
-done
-
-# ----- Basic prereqs ----------------------------------------------------------
-have git || die "git is not installed. (sudo apt install -y git)"
-have curl || have wget || die "Need curl or wget to download Miniconda."
-
-# ----- Resolve ROOT safely ----------------------------------------------------
-mkdir -p "$ROOT"
-ROOT="$(cd "$ROOT" && pwd)"
-
-# ----- Shell rc detection -----------------------------------------------------
-detect_shell_rc() {
-  local shell_rc=""
-  case "${SHELL:-}" in
-    *bash) shell_rc="$HOME/.bashrc" ;;
-    *zsh)  shell_rc="$HOME/.zshrc" ;;
-  esac
-  if [[ -z "$shell_rc" ]]; then
-    local comm=""
-    comm="$(ps -p $$ -o comm= 2>/dev/null || true)"
-    case "$comm" in
-      bash) shell_rc="$HOME/.bashrc" ;;
-      zsh)  shell_rc="$HOME/.zshrc" ;;
-    esac
-  fi
-  [[ -n "$shell_rc" ]] || shell_rc="$HOME/.bashrc"
-  printf '%s\n' "$shell_rc"
-}
-
-ensure_rc_file() {
-  local rc="$1"
-  [[ -n "$rc" ]] || return 0
-  if [[ -d "$rc" ]]; then
-    return 0
-  fi
-  [[ -f "$rc" ]] || : > "$rc"
-}
-
-append_once() {
-  local rc="$1"
-  local marker="$2"
-  local line="$3"
-  ensure_rc_file "$rc"
-  grep -Fq "$marker" "$rc" 2>/dev/null || {
-    printf '\n%s\n%s\n' "$marker" "$line" >> "$rc"
-  }
-}
-
-add_mapi_path() {
-  local rc="$1"
-  local marker="# MalariAPI executables"
-  local line="export PATH=\"$ROOT/bin:$ROOT/bin/scripts:\$PATH\""
-  append_once "$rc" "$marker" "$line"
-}
-
-add_conda_init() {
-  local rc="$1"
-  local marker="# MalariAPI Miniconda init"
-  local line="source \"$MINICONDA_HOME/etc/profile.d/conda.sh\""
-  append_once "$rc" "$marker" "$line"
-}
-
-add_conda_envs_dirs() {
-  local rc="$1"
-  local marker="# MalariAPI conda envs dir"
-  local line="export CONDA_ENVS_DIRS=\"$ROOT/envs\""
-  append_once "$rc" "$marker" "$line"
-}
-
-# ----- Git repo config --------------------------------------------------------
-configure_git_repo() {
-  (
-    cd "$ROOT"
-
-    if [[ -n "$GIT_USER_NAME" ]]; then
-      say "==> Setting git user.name (local): $GIT_USER_NAME"
-      git config user.name "$GIT_USER_NAME"
-    fi
-    if [[ -n "$GIT_USER_EMAIL" ]]; then
-      say "==> Setting git user.email (local): $GIT_USER_EMAIL"
-      git config user.email "$GIT_USER_EMAIL"
-    fi
-
-    if [[ "$REPO_OWNER" != "$UPSTREAM_OWNER" ]]; then
-      local upstream_url="git@github.com:${UPSTREAM_OWNER}/${REPO_NAME}.git"
-      if ! git remote get-url upstream >/dev/null 2>&1; then
-        say "==> Adding 'upstream' remote -> $upstream_url"
-        git remote add upstream "$upstream_url" || true
-      fi
-    fi
-
-    say "==> Git remotes:"
-    git remote -v || true
-  )
-}
-
-# ----- Miniconda --------------------------------------------------------------
-ensure_miniconda() {
-  if [[ -z "$MINICONDA_HOME" ]]; then
-    MINICONDA_HOME="$ROOT/tools/miniconda3"
-  fi
-
-  if [[ -x "$MINICONDA_HOME/bin/conda" ]]; then
-    say "==> Reusing Miniconda at $MINICONDA_HOME"
-  else
-    say "==> Installing Miniconda into $MINICONDA_HOME"
-    mkdir -p "$(dirname "$MINICONDA_HOME")"
-    (
-      cd "$(dirname "$MINICONDA_HOME")"
-      local INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
-      local URL="https://repo.anaconda.com/miniconda/$INSTALLER"
-      if have curl; then
-        curl -fsSLo "$INSTALLER" "$URL"
-      else
-        wget -O "$INSTALLER" "$URL"
-      fi
-      bash "$INSTALLER" -b -p "$MINICONDA_HOME"
-      rm -f "$INSTALLER"
-    )
-  fi
-
-  # Load conda into current shell
-  [[ -f "$MINICONDA_HOME/etc/profile.d/conda.sh" ]] || die "conda.sh not found under $MINICONDA_HOME"
-  # shellcheck disable=SC1091
-  source "$MINICONDA_HOME/etc/profile.d/conda.sh"
-
-  # Make conda less annoying by default (optional but nice)
-  "$MINICONDA_HOME/bin/conda" config --set auto_activate_base false >/dev/null 2>&1 || true
-}
-
-# ----- Env YAML auto-detect ---------------------------------------------------
-detect_default_env_yaml() {
-  # preferred, per your current layout:
-  if [[ -f "$ROOT/tools/yaml/default.yml" ]]; then
-    printf '%s\n' "$ROOT/tools/yaml/default.yml"; return 0
-  fi
-  # fallbacks (in case you have legacy trees somewhere):
-  if [[ -f "$ROOT/envs/default.yml" ]]; then
-    printf '%s\n' "$ROOT/envs/default.yml"; return 0
-  fi
-  if [[ -f "$ROOT/envs/yaml/default.yml" ]]; then
-    printf '%s\n' "$ROOT/envs/yaml/default.yml"; return 0
-  fi
-  return 1
-}
-
-install_default_env() {
-  [[ "$INSTALL_DEFAULT_ENV" -eq 1 ]] || { say "==> Skipping default env install (--no-default-env)"; return 0; }
-
-  local yml="$DEFAULT_ENV_YAML"
-  if [[ -z "$yml" ]]; then
-    yml="$(detect_default_env_yaml || true)"
-  fi
-  [[ -n "$yml" ]] || { say "==> No default env YAML found; skipping env build."; return 0; }
-
-  [[ -x "$ROOT/tools/install_envs.sh" ]] || {
-    say "==> tools/install_envs.sh missing or not executable; skipping env build."
-    return 0
-  }
-
-  say "==> Building env(s) from: $yml"
-  bash "$ROOT/tools/install_envs.sh" "$yml"
-
-  if [[ "$ACTIVATE_DEFAULT_ENV" -eq 1 ]]; then
-    say "==> Activating env 'default' in current shell"
-    conda activate default || {
-      say "!! Could not activate 'default'. It may have a different name than 'default'."
+if [[ -z "$HPC_NAME" || -z "$HOST" ]]; then
+  if [[ -f "$CFG" ]]; then
+    DEFAULT_HPC="$(jq -r '.default_hpc // empty' "$CFG")"
+    [[ -n "$DEFAULT_HPC" ]] || {
+      echo "No default_hpc in $CFG. Re-run as: $0 <hpc> <user@host> [partition] [allocation]" >&2
+      exit 2
     }
+
+    HOST_FROM_CFG="$(jq -r --arg h "$DEFAULT_HPC" '.clusters[$h].host // empty' "$CFG")"
+    [[ -n "$HOST_FROM_CFG" ]] || {
+      echo "Config missing host for '$DEFAULT_HPC'." >&2
+      exit 2
+    }
+
+    HPC_NAME="$DEFAULT_HPC"
+    HOST="$HOST_FROM_CFG"
+
+    [[ -z "$PARTITION" ]] && PARTITION="$(jq -r --arg h "$HPC_NAME" '.clusters[$h].partition // empty' "$CFG")"
+    [[ "$PARTITION" == "null" ]] && PARTITION=""
+
+    [[ -z "$ALLOCATION" ]] && ALLOCATION="$(jq -r --arg h "$HPC_NAME" '.clusters[$h].allocation // empty' "$CFG")"
+    [[ "$ALLOCATION" == "null" ]] && ALLOCATION=""
+
+    echo "Using existing config ($CFG): HPC='$HPC_NAME', host='$HOST'"
+  else
+    echo "No config and no args. Usage: $0 <hpc> <user@host> [partition] [allocation]" >&2
+    exit 2
+  fi
+fi
+
+: "${PARTITION:=standard}"
+: "${ALLOCATION:=}"
+
+###############################################################################
+# 2) RESOLVE REMOTE USER + REMOTE HOME (NO BatchMode YET)
+###############################################################################
+
+remote_user() {
+  local host="$1"
+  local u="${host%@*}"
+  if [[ "$u" == "$host" || -z "$u" ]]; then
+    u="$(ssh -o ConnectTimeout=8 "$host" 'printf "%s" "$USER"' 2>/dev/null || true)"
+  fi
+  printf "%s" "$u"
+}
+
+REMOTE_USER="$(remote_user "$HOST")"
+REMOTE_HOME="$(ssh -o ConnectTimeout=8 "$HOST" 'printf "%s" "$HOME"' 2>/dev/null || true)"
+
+[[ -n "$REMOTE_HOME" ]] || { echo "Could not determine remote HOME on $HOST" >&2; exit 4; }
+
+REMOTE_MAPI_HOME="$REMOTE_HOME/MalariAPI"
+REMOTE_SCRATCH="/scratch/$REMOTE_USER/MalariAPI"
+
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=8)
+
+###############################################################################
+# 3) UPDATE CONFIG JSON + .mapi.env
+###############################################################################
+
+mkdir -p "$MAPI_ROOT/tools"
+
+if [[ ! -f "$CFG" ]]; then
+  cat >"$CFG" <<EOF
+{"default_hpc":"$HPC_NAME","clusters":{"$HPC_NAME":{
+  "host":"$HOST",
+  "home_root":"$REMOTE_MAPI_HOME",
+  "scratch_root":"$REMOTE_SCRATCH",
+  "partition":"$PARTITION",
+  "allocation":"$ALLOCATION"
+}}}
+EOF
+else
+  TMP="$(mktemp)"
+  jq --arg h "$HPC_NAME" \
+     --arg host "$HOST" \
+     --arg rh "$REMOTE_MAPI_HOME" \
+     --arg rs "$REMOTE_SCRATCH" \
+     --arg part "$PARTITION" \
+     --arg alloc "$ALLOCATION" '
+    .default_hpc = ($h) |
+    .clusters[$h] = {
+      "host": $host,
+      "home_root": $rh,
+      "scratch_root": $rs,
+      "partition": $part,
+      "allocation": $alloc
+    }
+  ' "$CFG" > "$TMP"
+  mv "$TMP" "$CFG"
+fi
+
+echo "Configured HPC '$HPC_NAME' ($HOST)"
+echo "Remote HOME:    $REMOTE_MAPI_HOME"
+echo "Remote SCRATCH: $REMOTE_SCRATCH"
+
+###############################################################################
+# 3b) MATERIALIZE .mapi.env
+###############################################################################
+
+mkdir -p "$MAPI_ROOT/bin"
+MAPI_ENV_FILE="$MAPI_ROOT/bin/.mapi.env"
+touch "$MAPI_ENV_FILE"
+
+set_or_update() {
+  local key="$1" val="$2"
+  if grep -q "^export $key=" "$MAPI_ENV_FILE"; then
+    sed -i "s|^export $key=.*$|export $key=\"$val\"|" "$MAPI_ENV_FILE"
+  else
+    echo "export $key=\"$val\"" >>"$MAPI_ENV_FILE"
   fi
 }
 
-# ----- 0) Prep ----------------------------------------------------------------
-say "==> Target install directory: $ROOT"
+add_if_missing() {
+  local key="$1" val="$2"
+  grep -q "^export $key=" "$MAPI_ENV_FILE" || echo "export $key=\"$val\"" >>"$MAPI_ENV_FILE"
+}
 
-# ----- 1) Acquire / refresh repo ---------------------------------------------
-if [[ -d "$ROOT/.git" ]]; then
-  say "==> Existing repo found; updating branch '$BRANCH'"
-  (
-    cd "$ROOT"
-    git fetch origin "$BRANCH" || true
-    git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
-    # Keep sparse checkout behavior if you like it
-    git sparse-checkout init --no-cone >/dev/null 2>&1 || true
-    git sparse-checkout set '/*' '!:**/docs/**' >/dev/null 2>&1 || true
-    git pull --rebase --autostash origin "$BRANCH" || true
-    git sparse-checkout reapply >/dev/null 2>&1 || true
-  )
-else
-  say "==> Cloning repo $REPO_OWNER/$REPO_NAME (branch: $BRANCH)"
-  rm -rf "$ROOT"
-  git clone --filter=blob:none --sparse --branch "$BRANCH" \
-    "git@github.com:${REPO_OWNER}/${REPO_NAME}.git" "$ROOT" 2>/dev/null \
-  || git clone --filter=blob:none --sparse --branch "$BRANCH" \
-    "https://github.com/${REPO_OWNER}/${REPO_NAME}.git" "$ROOT"
+add_if_missing "MAPI_ROOT"            "\$HOME/MalariAPI"
+add_if_missing "MAPI_REMOTE_HOST"     "$HOST"
+add_if_missing "REMOTE_MAPI_HOME"     "$REMOTE_MAPI_HOME"
+add_if_missing "REMOTE_MAPI_SCRATCH"  "$REMOTE_SCRATCH"
+add_if_missing "MAPI_SCRATCH"         "\$MAPI_ROOT/scratch"
+add_if_missing "MAPI_SYNC_EXCLUDES_FILE" "$MAPI_ROOT/tools/.sync_excludes.txt"
 
-  (
-    cd "$ROOT"
-    git sparse-checkout init --no-cone
-    git sparse-checkout set '/*' '!:**/docs/**'
-  )
+# Canonical local conda location for MAPI (mapi summons this; no global shell changes)
+add_if_missing "MAPI_CONDA_HOME"      "\$MAPI_ROOT/tools/miniconda3"
+
+set_or_update "HPC_PARTITION" "$PARTITION"
+set_or_update "HPC_ALLOCATION" "$ALLOCATION"
+
+###############################################################################
+# 3c) SAFE ~/.ssh/config ENTRY
+###############################################################################
+
+mkdir -p "$HOME/.ssh"
+CONFIG_FILE="$HOME/.ssh/config"
+[[ -f "$CONFIG_FILE" ]] || { touch "$CONFIG_FILE"; chmod 600 "$CONFIG_FILE"; }
+
+BARE_HOST="${HOST#*@}"
+if ! grep -qE "^Host[[:space:]]+$BARE_HOST\$" "$CONFIG_FILE"; then
+  {
+    echo ""
+    echo "Host $BARE_HOST"
+    echo "    HostName $BARE_HOST"
+    [[ "$HOST" == *"@"* ]] && echo "    User ${HOST%@*}"
+  } >> "$CONFIG_FILE"
+  chmod 600 "$CONFIG_FILE"
 fi
 
-# ----- 2) Git remotes / identity ---------------------------------------------
-configure_git_repo
+###############################################################################
+# 4) ENSURE KEY-BASED LOGIN
+###############################################################################
 
-# ----- 3) Executables ---------------------------------------------------------
-if [[ -d "$ROOT/bin" ]]; then
-  say "==> Marking executables in bin/ as +x"
-  find "$ROOT/bin" -type f \( -name "mapi" -o -name "*.sh" \) -exec chmod +x {} \;
+if ! ssh "${SSH_OPTS[@]}" "$HOST" true 2>/dev/null; then
+  echo "No key-based login; installing key..."
+  [[ -f "$HOME/.ssh/id_ed25519" ]] || ssh-keygen -t ed25519 -N "" -f "$HOME/.ssh/id_ed25519"
+  ssh-copy-id "$HOST"
 fi
-# common tool scripts you mentioned
-for f in "$ROOT/tools/git/update" "$ROOT/tools/git/upload" "$ROOT/tools/git/switch"; do
-  [[ -f "$f" ]] && chmod +x "$f" || true
-done
 
-# ----- 4) PATH + conda init persistence --------------------------------------
-say "==> Ensuring MalariAPI PATH + conda init are in your shell rc"
-SHELL_RC="$(detect_shell_rc)"
+ssh "${SSH_OPTS[@]}" "$HOST" true >/dev/null
 
-# apply to both if present (and create if missing)
-for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$SHELL_RC"; do
-  add_mapi_path "$rc"
-done
+###############################################################################
+# 5) CREATE REMOTE DIRS
+###############################################################################
 
-# ----- 5) Miniconda -----------------------------------------------------------
-say "==> Ensuring Miniconda is available"
-ensure_miniconda
+ssh "${SSH_OPTS[@]}" "$HOST" \
+  "mkdir -p \"$REMOTE_MAPI_HOME\" \"$REMOTE_SCRATCH/scratch\" /scratch/\$USER/mapi_logs" 2>/dev/null
 
-# Always persist PATH to mapi binaries
-for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$SHELL_RC"; do
-  add_mapi_path "$rc"
-done
+###############################################################################
+# 5a) SYNC EXCLUDES
+###############################################################################
 
-# Only persist conda init if user opted in
-if [[ "$GLOBAL_CONDA" -eq 1 ]]; then
-  for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$SHELL_RC"; do
-    add_conda_init "$rc"
-    add_conda_envs_dirs "$rc"
-  done
-  say "==> Global conda enabled: MAPI Miniconda will be your default conda in new shells."
-else
-  say "==> Global conda NOT enabled: MAPI Miniconda will only be used when running 'mapi'."
+mkdir -p "$MAPI_ROOT/tools"
+SYNC_EXC_FILE="$MAPI_ROOT/tools/.sync_excludes.txt"
+
+if [[ ! -f "$SYNC_EXC_FILE" ]]; then
+  cat >"$SYNC_EXC_FILE" <<'EOF'
+.git
+scratch
+tools/miniconda3
+tools/__HPC_NAME__/
+EOF
 fi
-# Make available immediately in THIS shell too
-export PATH="$ROOT/bin:$ROOT/bin/scripts:$PATH"
-export CONDA_ENVS_DIRS="$ROOT/envs"
 
-# ----- 6) Build default env (optional) ---------------------------------------
-install_default_env
+TMP_SYNC_EXC="$(mktemp)"
+sed "s#__HPC_NAME__#${HPC_NAME}#g" "$SYNC_EXC_FILE" > "$TMP_SYNC_EXC"
+trap 'rm -f "$TMP_SYNC_EXC"' EXIT
 
-# ----- 7) Post-install message ------------------------------------------------
-cat <<NOTE
+###############################################################################
+# 6) MIRROR LOCAL → REMOTE HOME
+###############################################################################
 
-==> Initial MAPI install complete.
+echo "[local] syncing MalariAPI → remote..."
 
-What was done:
-  - Repo at:            $ROOT
-  - PATH updated for:   $ROOT/bin and $ROOT/bin/scripts
-  - Miniconda at:       $MINICONDA_HOME
-  - Conda init added to: ~/.bashrc and ~/.zshrc (if present)
-  - CONDA_ENVS_DIRS set to: $ROOT/envs
+tar -czf - \
+  --exclude scratch \
+  --exclude 'scratch/*' \
+  --exclude envs \
+  --exclude 'envs/*' \
+  --exclude tools/miniconda3 \
+  --exclude 'tools/miniconda3/*' \
+  --exclude-from "$TMP_SYNC_EXC" \
+  -C "$MAPI_ROOT" . \
+  | ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" \
+      "env -u BASH_ENV bash --noprofile --norc -c 'set -euo pipefail; mkdir -p \"\$HOME/MalariAPI\"; tar -xzf - -C \"\$HOME/MalariAPI\"'"
 
-Next:
-  1) Restart your shell OR run:
-       source ~/.bashrc    # (or ~/.zshrc)
+###############################################################################
+# 7) MIRROR LOCAL SCRATCH → REMOTE SCRATCH
+###############################################################################
 
-  2) Verify:
-       mapi --help
-       conda --version
+echo "[scratch] staging scratch → remote"
 
-  3) If you skipped env creation and want it later:
-       bash "$ROOT/tools/install_envs.sh" "$ROOT/tools/yaml/default.yml"
+mkdir -p "$MAPI_ROOT/scratch"
+tar -C "$MAPI_ROOT/scratch" --exclude tmp -czf - . \
+  | ssh "${SSH_OPTS[@]}" "$HOST" \
+      "bash --noprofile --norc -c 'set -euo pipefail; mkdir -p \"$REMOTE_SCRATCH/scratch\"; tar -xzf - -C \"$REMOTE_SCRATCH/scratch\"'"
 
-NOTE
+###############################################################################
+# 8) REMOTE SUBMIT WRAPPER
+###############################################################################
+# deprecated / removed
 
-say "==> Done."
+###############################################################################
+# 9) INSTALL LOCAL HPC TOOL WRAPPERS
+###############################################################################
+install_local_hpc_tools() {
+  local name="$1"
+  local tmpl_root="$MAPI_ROOT/tools/hpc_templates"
+  local dest_dir="$MAPI_ROOT/tools/$name"
+
+  if [[ ! -d "$tmpl_root" ]]; then
+    echo "[install] WARNING: no templates dir at $tmpl_root; skipping local HPC wrappers for '$name'"
+    return 0
+  fi
+
+  echo "[install] Installing local HPC wrappers for '$name':"
+  echo "  templates: $tmpl_root/*"
+  echo "  dest:      $dest_dir/"
+
+  mkdir -p "$dest_dir"
+
+  rsync -a "$tmpl_root"/ "$dest_dir"/
+
+  if ls "$dest_dir"/* >/dev/null 2>&1; then
+    sed -i "s/__HPC_NAME__/$name/g" "$dest_dir"/* || true
+    chmod +x "$dest_dir"/* || true
+  fi
+}
+
+echo "[install] Setting up local HPC tool wrappers for $HPC_NAME..."
+install_local_hpc_tools "$HPC_NAME"
+
+###############################################################################
+# 10) REMOTE MINICONDA INSTALL
+###############################################################################
+
+ssh "${SSH_OPTS[@]}" "$HOST" 'bash --noprofile --norc -s' <<'RMT'
+set -euo pipefail
+
+MAPI_HOME="$HOME/MalariAPI"
+REMOTE_CONDA_DIR="$MAPI_HOME/tools/miniconda3"
+
+# 0) Detect obviously broken Miniconda (e.g. conda shebang pointing elsewhere)
+if [[ -x "$REMOTE_CONDA_DIR/bin/conda" ]]; then
+  first_line="$(head -n 1 "$REMOTE_CONDA_DIR/bin/conda" 2>/dev/null || true)"
+  if [[ "$first_line" != *"$REMOTE_CONDA_DIR/bin/python"* ]]; then
+    echo "[remote] Existing Miniconda at $REMOTE_CONDA_DIR looks corrupted (shebang: $first_line)"
+    echo "[remote] Removing and reinstalling..."
+    rm -rf "$REMOTE_CONDA_DIR"
+  fi
+fi
+
+# 1) install Miniconda if missing
+if [[ ! -x "$REMOTE_CONDA_DIR/bin/conda" ]]; then
+  echo "[remote] Installing Miniconda..."
+  mkdir -p "$MAPI_HOME/tools"
+  cd "$MAPI_HOME/tools"
+  INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
+  URL="https://repo.anaconda.com/miniconda/$INSTALLER"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$INSTALLER" "$URL"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "$INSTALLER" "$URL"
+  else
+    echo "[remote] ERROR: neither curl nor wget is available to download Miniconda." >&2
+    exit 3
+  fi
+
+  bash "$INSTALLER" -b -p "$REMOTE_CONDA_DIR"
+  rm -f "$INSTALLER"
+fi
+
+echo "[remote] ensuring base env update (tools/yaml/base.yml if present)"
+BASE=""
+for p in \
+  "$MAPI_HOME/tools/yaml/base.yml" \
+  "$MAPI_HOME/tools/yaml/base.yaml"
+do
+  [[ -f "$p" ]] && BASE="$p" && break
+done
+
+if [[ -n "$BASE" ]]; then
+  "$REMOTE_CONDA_DIR/bin/conda" env update -n base -f "$BASE" || true
+fi
+RMT
+
+###############################################################################
+# 11) REMOTE env file only (NO ~/.bashrc modifications)
+###############################################################################
+
+echo "[remote] installing tools/mapi_remote_env.sh (no bashrc edits)"
+
+ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" 'bash --noprofile --norc -s' <<'RMT'
+set -euo pipefail
+MAPI_ROOT="$HOME/MalariAPI"
+TOOLS_DIR="$MAPI_ROOT/tools"
+mkdir -p "$TOOLS_DIR"
+
+cat >"$TOOLS_DIR/mapi_remote_env.sh" <<'EOF_ENV'
+# Auto-generated by MAPI installer (remote)
+export MAPI_ROOT="$HOME/MalariAPI"
+export REMOTE_MAPI_HOME="$HOME/MalariAPI"
+export REMOTE_SCRATCH="${REMOTE_SCRATCH:-/scratch/$USER/MalariAPI}"
+export MAPI_SCRATCH="$MAPI_ROOT/scratch"
+EOF_ENV
+
+chmod +x "$TOOLS_DIR/mapi_remote_env.sh"
+RMT
+
+###############################################################################
+# DONE 🎉
+###############################################################################
+
+echo
+echo "HPC init complete ✅"
+echo "Local scratch:  $MAPI_ROOT/scratch/"
+echo "Remote scratch: $REMOTE_SCRATCH/scratch/"
+echo "Use:  mapi $HPC_NAME submit|status|cancel|look|peak|pull|push|sync"
