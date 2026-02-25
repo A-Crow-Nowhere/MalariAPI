@@ -6,4 +6,3 @@ channels:
 dependencies:
   - bash
   # Suggested CLI tools (verify names):
-  - exit

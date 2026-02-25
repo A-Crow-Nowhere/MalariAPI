@@ -1,0 +1,10 @@
+name: sniffles
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - sniffles=2.7.2
+  - bcftools
+  - htslib
+  - samtools
+  - tabix

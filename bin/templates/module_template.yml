@@ -1,0 +1,30 @@
+# THIS IS JUST A TEMPLATE, REPLACE/ADD ALL ITEMS THAT 
+# ARE RELEVANT TO YOUR MODULE
+
+
+# ===== Module metadata =====
+name: module-example
+entry: module-example.sh
+env_name: module-example
+description: "module is a module."
+
+# ===== Environment spec =====
+env:
+  channels: [conda-forge, bioconda, defaults]
+  dependencies:
+    - python >=3.10
+    - pysam
+    - samtools
+
+# ===== Interface contract =====
+inputs:
+  - id: bam
+    required: true
+    flags: ["--in","--in1","-1"]
+    expects_ext: ["something","somethingelse"] # bam, txt, sam, bed, whatever.
+
+outputs:
+  out_dir_template: "{sample_prefix}_mapi-out"
+  products:
+    - tag: "mod-ex"         # must match DEFAULT_TAG in the script
+      exts: ["something","somethingelse"] # bam, txt, sam, bed, whatever.

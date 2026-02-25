@@ -106,6 +106,9 @@ FINAL_COUNT_INCLUDE_SECONDARY=0
 FORCE=0
 KEEP_TMP=0
 
+CIRCULAR_CONTIGS=""
+CIRCULAR_CONTIGS_FILE=""
+
 START_AT="cov_model_train"
 STOP_AFTER="cnv_finalize_segments"
 
@@ -266,6 +269,10 @@ Finalize extras:
   --final-count-drop-dup          exclude duplicate-marked reads from BAM counts
   --final-count-include-supp      include supplementary alignments in BAM counts
   --final-count-include-secondary include secondary alignments in BAM counts
+
+  --final-circular-contigs        Pass circular contig as text"Pf3D7_API_v3,Pf3D7_MIT_v3"
+  --final-circular-contigs-file   Pass circular contig as a text file circular_contigs.txt
+
 
 Early stop convenience:
   --stop-after Model_Finalize  will stop after cov_bw_qc (no CNV calling)
@@ -596,6 +603,10 @@ parse_common_args() {
       --final-count-include-supp) FINAL_COUNT_INCLUDE_SUPP=1; shift ;;
       --final-count-include-secondary) FINAL_COUNT_INCLUDE_SECONDARY=1; shift ;;
 
+      --circular-contigs) CIRCULAR_CONTIGS="$2"; shift 2;; 
+ 	  --circular-contigs-file) CIRCULAR_CONTIGS_FILE="$2"; shift 2;;  
+
+
       -h|--help) usage; exit 0 ;;
       *) die "Unknown argument: $1" ;;
     esac
@@ -880,6 +891,17 @@ step_cnv_finalize() {
     --out-bedgraph-ratio "$out_ratio"
   )
 
+  # ---- Circular contigs passthrough (NEW) ----
+  # Use either/both:
+  #   FINAL_CIRCULAR_CONTIGS="Pf3D7_API_v3,Pf3D7_MIT_v3"
+  #   FINAL_CIRCULAR_CONTIGS_FILE="/path/to/circular_contigs.txt"
+  if [[ -n "${FINAL_CIRCULAR_CONTIGS:-}" ]]; then
+    cmd+=( --circular-contigs "${FINAL_CIRCULAR_CONTIGS}" )
+  fi
+  if [[ -n "${FINAL_CIRCULAR_CONTIGS_FILE:-}" ]]; then
+    cmd+=( --circular-contigs-file "${FINAL_CIRCULAR_CONTIGS_FILE}" )
+  fi
+
   # Fusion controls
   if [[ "$FINAL_FUSE" -eq 1 ]]; then
     cmd+=( --fuse --fuse-max-gap "$FINAL_FUSE_MAX_GAP" )
@@ -928,14 +950,11 @@ step_cnv_finalize() {
     run_step "CNV_Finalize" "$LOG/cnv_finalize_segments.log" "${cmd[@]}"
   fi
 
-for f in "$WORK/final/"/*; do
-  [[ -f "$f" ]] || continue
-  bn="$(basename "$f")"
-  cp "$f" "$SAMPLE_DIR/${SAMPLE}.${bn}"
-done
-
-  
-  
+  for f in "$WORK/final/"/*; do
+    [[ -f "$f" ]] || continue
+    bn="$(basename "$f")"
+    cp "$f" "$SAMPLE_DIR/${SAMPLE}.${bn}"
+  done
 }
 
 run_internal_step() {

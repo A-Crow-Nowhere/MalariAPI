@@ -225,10 +225,10 @@ sed "s#__HPC_NAME__#${HPC_NAME}#g" "$SYNC_EXC_FILE" > "$TMP_SYNC_EXC"
 trap 'rm -f "$TMP_SYNC_EXC"' EXIT
 
 ###############################################################################
-# 6) MIRROR LOCAL  REMOTE HOME
+# 6) MIRROR LOCAL → REMOTE HOME
 ###############################################################################
 
-echo "[local] syncing MalariAPI  remote..."
+echo "[local] syncing MalariAPI → remote..."
 
 tar -czf - \
   --exclude scratch \
@@ -243,10 +243,10 @@ tar -czf - \
       "env -u BASH_ENV bash --noprofile --norc -c 'set -euo pipefail; mkdir -p \"\$HOME/MalariAPI\"; tar -xzf - -C \"\$HOME/MalariAPI\"'"
 
 ###############################################################################
-# 7) MIRROR LOCAL SCRATCH  REMOTE SCRATCH
+# 7) MIRROR LOCAL SCRATCH → REMOTE SCRATCH
 ###############################################################################
 
-echo "[scratch] staging scratch  remote"
+echo "[scratch] staging scratch → remote"
 
 mkdir -p "$MAPI_ROOT/scratch"
 tar -C "$MAPI_ROOT/scratch" --exclude tmp -czf - . \
@@ -367,11 +367,11 @@ chmod +x "$TOOLS_DIR/mapi_remote_env.sh"
 RMT
 
 ###############################################################################
-# DONE ??
+# DONE 🎉
 ###############################################################################
 
 echo
-echo "HPC init complete ?"
+echo "HPC init complete ✅"
 echo "Local scratch:  $MAPI_ROOT/scratch/"
 echo "Remote scratch: $REMOTE_SCRATCH/scratch/"
 echo "Use:  mapi $HPC_NAME submit|status|cancel|look|peak|pull|push|sync"

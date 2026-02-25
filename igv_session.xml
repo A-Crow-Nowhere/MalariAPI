@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Session genome="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\genomes\Dd2.fasta" locus="PfDd2_API:0-102" nextAutoscaleGroup="10" version="8">
+    <Resources>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\genomes\Dd2.gff" type="gff"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_2.primary.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_1.splitters.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_3.splitters.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\PC1C.splitters.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C6_1.primary.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C7B.primary.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C6_1.splitters.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_1.primary.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C1_1.primary.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C3_1.primary.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_3.primary.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_2.splitters.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\PC1C.primary.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C1_1.splitters.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C7B.splitters.corr.bins75.bw" type="bw"/>
+        <Resource path="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C3_1.splitters.corr.bins75.bw" type="bw"/>
+    </Resources>
+    <Panel height="640" name="DataPanel" width="1115">
+        <Track attributeKey="C7B.primary.corr.bins75.bw" autoScale="false" autoscaleGroup="7" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C7B.primary.corr.bins75.bw" name="C7B.primary.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="630.5975" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C7B.splitters.corr.bins75.bw" autoScale="false" autoscaleGroup="6" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C7B.splitters.corr.bins75.bw" name="C7B.splitters.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="173.15852" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="PC1C.primary.corr.bins75.bw" autoScale="false" autoscaleGroup="7" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\PC1C.primary.corr.bins75.bw" name="PC1C.primary.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="630.5975" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="PC1C.splitters.corr.bins75.bw" autoScale="false" autoscaleGroup="6" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\PC1C.splitters.corr.bins75.bw" name="PC1C.splitters.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="173.15852" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C1_1.primary.corr.bins75.bw" autoScale="false" autoscaleGroup="7" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C1_1.primary.corr.bins75.bw" name="C1_1.primary.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="630.5975" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C1_1.splitters.corr.bins75.bw" autoScale="false" autoscaleGroup="6" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C1_1.splitters.corr.bins75.bw" name="C1_1.splitters.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="173.15852" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C3_1.primary.corr.bins75.bw" autoScale="false" autoscaleGroup="7" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C3_1.primary.corr.bins75.bw" name="C3_1.primary.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="630.5975" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C3_1.splitters.corr.bins75.bw" autoScale="false" autoscaleGroup="6" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C3_1.splitters.corr.bins75.bw" name="C3_1.splitters.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="173.15852" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C6_1.primary.corr.bins75.bw" autoScale="false" autoscaleGroup="7" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C6_1.primary.corr.bins75.bw" name="C6_1.primary.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="630.5975" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C6_1.splitters.corr.bins75.bw" autoScale="false" autoscaleGroup="6" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C6_1.splitters.corr.bins75.bw" name="C6_1.splitters.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="173.15852" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C01_1.primary.corr.bins75.bw" autoScale="false" autoscaleGroup="8" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_1.primary.corr.bins75.bw" name="C01_1.primary.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="mean">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="19.495258" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C01_1.splitters.corr.bins75.bw" autoScale="false" autoscaleGroup="9" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_1.splitters.corr.bins75.bw" name="C01_1.splitters.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="3.17333" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C01_2.primary.corr.bins75.bw" autoScale="false" autoscaleGroup="8" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_2.primary.corr.bins75.bw" name="C01_2.primary.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="mean">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="19.495258" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C01_2.splitters.corr.bins75.bw" autoScale="false" autoscaleGroup="9" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_2.splitters.corr.bins75.bw" name="C01_2.splitters.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="3.17333" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C01_3.primary.corr.bins75.bw" autoScale="false" autoscaleGroup="8" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_3.primary.corr.bins75.bw" name="C01_3.primary.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="mean">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="19.495258" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="C01_3.splitters.corr.bins75.bw" autoScale="false" autoscaleGroup="9" clazz="org.broad.igv.track.DataSourceTrack" fontSize="20" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\scratch\clover\cannon\downsampled\depth\C01_3.splitters.corr.bins75.bw" name="C01_3.splitters.corr.bins75.bw" renderer="BAR_CHART" visible="true" windowFunction="max">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="3.17333" minimum="0.0" type="LINEAR"/>
+        </Track>
+    </Panel>
+    <Panel height="62" name="FeaturePanel" width="1115">
+        <Track attributeKey="Reference sequence" clazz="org.broad.igv.track.SequenceTrack" fontSize="20" id="Reference sequence" name="Reference sequence" sequenceTranslationStrandValue="+" shouldShowTranslation="false" visible="true"/>
+        <Track attributeKey="Dd2.gff" clazz="org.broad.igv.track.FeatureTrack" fontSize="20" groupByStrand="false" id="\\wsl.localhost\Ubuntu\home\a-crow-nowhere\MalariAPI\genomes\Dd2.gff" name="Dd2.gff" visible="true"/>
+    </Panel>
+    <PanelLayout dividerFractions="0.8752327746741154"/>
+    <HiddenAttributes/>
+</Session>
