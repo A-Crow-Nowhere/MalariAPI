@@ -28,42 +28,7 @@ This makes projects easier to understand, debug, and share ΓÇö even months la
 To increase speed and de-clutter workflows, MAPI includes sever quality of life features.
 ---
 
-### MAPI Sample Folders (MSFs): zero-path workflows
 
-MAPI introduces **MAPI Sample Folders (MSFs)**:
-
-```
-mapi-sampleName/
-Γö£ΓöÇΓöÇ sampleName-output/
-Γö£ΓöÇΓöÇ input_files.fastq.gz
-ΓööΓöÇΓöÇ summary.txt
-```
-
-When working inside an MSF:
-
-- You do not need to type file paths
-- Outputs are automatically written to the correct backend folder
-- File naming follows a consistent, machine-readable convention
-
-No long paths. No guessing where results went.
-
-## [Look at a minimal **MSF** workflow example here](https://github.com/A-Crow-Nowhere/MalariAPI/blob/main/docs/MSF.example.md)
-
----
-
-### Idempotent modules (less code, fewer mistakes)
-
-MAPI replaces this with a single metadata header that declares:
-
-- inputs and options  
-- defaults and required arguments  
-- outputs  
-- environments  
-- required resources  
-
-From this header, MAPI automatically builds the argument parser, validates required inputs, documents usage, and standardizes outputs.
-
----
 
 ### Seamless HPC (High performance computer/cluster) passthrough
 
