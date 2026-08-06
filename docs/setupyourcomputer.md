@@ -56,45 +56,6 @@ This provides improved terminal features, a GUI file browser, and easier copy/pa
 sudo service ssh start
 ```
 
-# Option B — macOS (via UTM Ubuntu VM)
-
-macOS cannot run Linux natively like Windows WSL, but UTM provides a lightweight Ubuntu ARM virtual machine that behaves identically to Linux. This is the recommended MAPI workflow on macOS.
-
-## 1. Install UTM
-
-Download from:
-https://mac.getutm.app/
-
-Create a new virtual machine:
-- Virtualize → Linux
-- Select an Ubuntu ARM ISO (Ubuntu 22.04 or 24.04 ARM64)
-
-ARM Ubuntu images can be downloaded from:
-https://ubuntu.com/download/server/arm
-
-## 2. Recommended VM Configuration
-
-- Memory: 4–8 GB
-- CPU cores: 4–8
-- Disk: 40–80 GB
-- Network: Shared (NAT)
-
-Install Ubuntu and create a username and password.
-
-## 3. Update Ubuntu inside the VM
-
-```
-sudo apt update && sudo apt upgrade -y
-```
-
-## 4. Install recommended tools
-
-```
-sudo apt install -y build-essential git curl wget unzip htop openssh-server micro samtools bedtools
-```
-
-You may now proceed exactly as you would on native Linux.
-
 # Option C — Linux (Native)
 
 If you are already using a Linux distribution, ensure the required tools are present:
